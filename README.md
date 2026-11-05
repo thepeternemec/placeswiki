@@ -79,6 +79,7 @@ editors instead.
 
 ## Docs
 
+[Architecture](docs/ARCHITECTURE.md) — stages, layers, rules ·
 [API](docs/API.md) — endpoints, masks, deliberate differences ·
 [Schema](SCHEMA.md) — field mapping to Places API (New) ·
 [Data licence](DATA-LICENSE.md) — what you may do with it ·

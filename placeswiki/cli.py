@@ -23,8 +23,16 @@ from .bulk import stage_countries as bulk_stage_countries
 from .bulk import status as bulk_status
 from .contribute import collect_gaps, render_json, render_markdown
 from .crawl import crawl_category, crawl_links, geosearch
+from .engine import enrich_from_wikidata
+from .engine import lookup as engine_lookup
 from .google import PlacesClient, match_places
 from .images import COMMONS_API, fetch_imageinfo
+from .intel import (
+    best_photo,
+    collect_category_photos,
+    rank_photos,
+    repair_attribution,
+)
 from .links import (
     LinkError,
     check_integrity,
@@ -153,10 +161,25 @@ def _build_parser():
     match.add_argument("--dry-run", action="store_true")
 
     photos = sub.add_parser(
-        "photos", parents=[common], help="resolve lead images to upload URLs and licences"
+        "photos", parents=[common], help="resolve, score and expand place photographs"
     )
     photos.add_argument("--limit", type=int, default=500, help="resolve at most N images")
     photos.add_argument("--commons-url", default=COMMONS_API)
+    photos.add_argument("--rank", action="store_true", help="score and rank photos after resolving")
+    photos.add_argument(
+        "--category", action="store_true", help="expand photo sets from Commons categories"
+    )
+    photos.add_argument("--max-files", type=int, default=24, help="candidates per place")
+    photos.add_argument("--repair", action="store_true", help="strip HTML from stored attribution")
+
+    engine = sub.add_parser("engine", parents=[common], help="resolve Wikimedia place identities")
+    engine.add_argument("action", choices=("resolve", "lookup", "best"))
+    engine.add_argument("--limit", type=int, default=100)
+    engine.add_argument("--name", help="for lookup: place name")
+    engine.add_argument("--lat", type=float, help="for lookup: latitude")
+    engine.add_argument("--lon", type=float, help="for lookup: longitude")
+    engine.add_argument("--max-km", type=float, default=2.0)
+    engine.add_argument("--place", help="for best: place id")
 
     near = sub.add_parser("near", parents=[common], help="pages within a radius of a point")
     near.add_argument("--lat", type=float, required=True)
@@ -286,19 +309,87 @@ def cmd_collect(args):
         _log(args, "done: %d stored (%d updated), %d total in db" % (added, skipped, store.count()))
 
 
+def cmd_engine(args):
+    if args.action == "lookup":
+        if not args.name or args.lat is None or args.lon is None:
+            raise SystemExit("lookup needs --name, --lat and --lon")
+        api = MediaWiki(
+            "https://www.wikidata.org/w/api.php",
+            user_agent=args.user_agent,
+            min_interval=args.min_interval,
+        )
+        for candidate in engine_lookup(api, args.name, args.lat, args.lon, max_km=args.max_km):
+            print(
+                "%s  %6.2f km  %-40s %s"
+                % (
+                    candidate["qid"],
+                    candidate["distance_km"],
+                    (candidate["label"] or "")[:40],
+                    candidate["description"][:50],
+                )
+            )
+        return 0
+
+    with Store(args.db) as store:
+        ensure_schema(store.conn)
+        if args.action == "best":
+            if not args.place:
+                raise SystemExit("best needs --place")
+            photo = best_photo(store.conn, args.place)
+            if not photo:
+                print("no photos for %s" % args.place)
+                return 1
+            print("%s  score %.1f" % (photo["id"], photo["score"] or 0))
+            print(photo["url"])
+            for reason in json.loads(photo["score_reasons"] or "[]"):
+                print("  -", reason)
+            return 0
+
+        api = MediaWiki(
+            "https://www.wikidata.org/w/api.php",
+            user_agent=args.user_agent,
+            min_interval=args.min_interval,
+        )
+        result = enrich_from_wikidata(
+            store.conn, api, limit=args.limit, log=lambda m: _log(args, m)
+        )
+        _log(args, "resolved %(resolved)d of %(places)d places, %(photos)d lead images" % result)
+        return 0
+
+
 def cmd_photos(args):
     commons = MediaWiki(
         args.commons_url, user_agent=args.user_agent, min_interval=args.min_interval
     )
     with Store(args.db) as store:
+        ensure_schema(store.conn)
+        if args.repair:
+            result = repair_attribution(store.conn)
+            _log(args, "repaired %(repaired)d attribution strings" % result)
+        if args.category:
+            result = collect_category_photos(
+                store.conn,
+                commons,
+                limit_places=args.limit,
+                max_files=args.max_files,
+                log=lambda m: _log(args, m),
+            )
+            _log(args, "places=%(places)d added=%(added)d candidates" % result)
+        if args.rank or args.category:
+            result = rank_photos(store.conn)
+            _log(args, "ranked %(ranked)d photos across %(places)d places" % result)
+
         pending = store.pending_image_files(limit=args.limit)
-        _log(args, "resolving %d images on Commons" % len(pending))
-        resolved = 0
-        for record in fetch_imageinfo(commons, pending):
-            store.upsert_photo(record)
-            resolved += 1
-        store.conn.commit()
-        _log(args, "stored %d image records" % resolved)
+        if pending:
+            _log(args, "resolving %d images on Commons" % len(pending))
+            resolved = 0
+            for record in fetch_imageinfo(commons, pending):
+                store.upsert_photo(record)
+                resolved += 1
+            store.conn.commit()
+            _log(args, "stored %d image records" % resolved)
+            if args.rank:
+                rank_photos(store.conn)
 
 
 def cmd_normalize(args):
@@ -647,6 +738,7 @@ def main(argv=None):
     handlers = {
         "collect": cmd_collect,
         "photos": cmd_photos,
+        "engine": cmd_engine,
         "normalize": cmd_normalize,
         "google-match": cmd_google_match,
         "export": cmd_export,

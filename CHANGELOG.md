@@ -3,6 +3,31 @@
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## [3.1.0] — 2026-11-05
+
+### Added
+
+- **Photo intelligence** (`intel.py`): explainable scoring — resolution 40,
+  licence 25, attribution 15, lead image 20 — stored with the reasons, plus
+  `photos --rank`, `--category` (expand a thin set from the Commons category,
+  marked `source='category'`) and `--repair` (strip HTML from attribution).
+- **Place identity engine** (`engine.py`): resolves a Wikipedia article to its
+  Wikidata item in batches of 50, then adopts coordinates, `P1435`, `P373` and
+  `P18`. `engine lookup` finds candidates by name and distance; `engine best`
+  explains the chosen photograph.
+- **Dockerfile**: unprivileged image, mounted SQLite file, health check.
+- **docs/ARCHITECTURE.md**: stages, layers and the identity/photo rules.
+- **CI `e2e` job**: builds a fixture database offline, publishes it, parses the
+  payload with `google.maps.places_v1`, then serves it and queries over HTTP.
+
+### Fixed
+
+- Bulk enrichment stored **raw HTML in author names** (`<a href=…>`), which would
+  have leaked into `authorAttributions`. `photos --repair` fixed 346 existing
+  rows in the Slovenian sample; the clean-up is now part of ranking.
+- Wikidata's `P373` now takes precedence over a crawled Commons category, as the
+  more canonical value.
+
 ## [3.0.0] — 2026-10-22
 
 ### Changed

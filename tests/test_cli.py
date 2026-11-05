@@ -39,17 +39,33 @@ class TestValidation(Base):
 
     def test_removing_unknown_link_is_refused(self):
         with self.assertRaises(SystemExit):
-            main([
-                "link", "remove", "--db", self.db, "--place", "wc:nope",
-                "--google-id", "ChIJrTLr-GyuEmsRBfy61i59si0",
-            ])
+            main(
+                [
+                    "link",
+                    "remove",
+                    "--db",
+                    self.db,
+                    "--place",
+                    "wc:nope",
+                    "--google-id",
+                    "ChIJrTLr-GyuEmsRBfy61i59si0",
+                ]
+            )
 
     def test_promoting_unknown_link_is_refused(self):
         with self.assertRaises(SystemExit):
-            main([
-                "link", "promote", "--db", self.db, "--place", "wc:nope",
-                "--google-id", "ChIJrTLr-GyuEmsRBfy61i59si0",
-            ])
+            main(
+                [
+                    "link",
+                    "promote",
+                    "--db",
+                    self.db,
+                    "--place",
+                    "wc:nope",
+                    "--google-id",
+                    "ChIJrTLr-GyuEmsRBfy61i59si0",
+                ]
+            )
 
 
 if __name__ == "__main__":

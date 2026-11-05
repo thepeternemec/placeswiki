@@ -174,6 +174,9 @@ CREATE TABLE IF NOT EXISTS place_photos (
     license         TEXT,
     html_attributions TEXT,                    -- JSON array
     position        INTEGER DEFAULT 0,
+    score           REAL,
+    score_reasons   TEXT,
+    source          TEXT,
     created_at      REAL,
     PRIMARY KEY (place_id, id)   -- the same photo may illustrate several places
 );

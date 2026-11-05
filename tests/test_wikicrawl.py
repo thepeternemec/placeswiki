@@ -189,7 +189,9 @@ class TestCrawlStrategies(unittest.TestCase):
                 self.calls += 1
                 if self.calls == 1:
                     return {
-                        "query": {"pages": [{"title": "Seed", "links": [{"title": "A"}, {"title": "B"}]}]},
+                        "query": {
+                            "pages": [{"title": "Seed", "links": [{"title": "A"}, {"title": "B"}]}]
+                        },
                         "continue": {"plcontinue": "next"},
                     }
                 return {"query": {"pages": [{"title": "Seed", "links": [{"title": "C"}]}]}}
@@ -206,10 +208,16 @@ class TestCrawlStrategies(unittest.TestCase):
                 params = dict(params or {})
                 params.update(kwargs)
                 title = params.get("titles")
-                return {"query": {"pages": [{
-                    "title": title,
-                    "links": [{"title": t} for t in self.links.get(title, [])],
-                }]}}
+                return {
+                    "query": {
+                        "pages": [
+                            {
+                                "title": title,
+                                "links": [{"title": t} for t in self.links.get(title, [])],
+                            }
+                        ]
+                    }
+                }
 
         api = LinkAPI({"Seed": ["A", "B"], "A": ["C"], "B": [], "C": []})
         self.assertEqual(sorted(crawl_links(api, ["Seed"], depth=1)), ["A", "B", "Seed"])
