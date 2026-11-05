@@ -44,6 +44,8 @@ from .links import (
     validate_google_id,
 )
 from .normalize import normalize
+from .notify import build_event
+from .notify import send as send_event
 from .pages import fetch_pages
 from .publish import publish as publish_bundle
 from .schema import (
@@ -243,6 +245,18 @@ def _build_parser():
     gaps.add_argument("--out", help="write the report here (default: stdout)")
     gaps.add_argument("--format", choices=("md", "json"), default="md")
     gaps.add_argument("--limit", type=int, default=100, help="rows per section")
+
+    notify = sub.add_parser(
+        "notify", parents=[common], help="POST a signed dataset event to your webhook"
+    )
+    notify.add_argument("--url", required=True, help="https endpoint to notify")
+    notify.add_argument(
+        "--secret",
+        default=os.environ.get("PLACESWIKI_WEBHOOK_SECRET", ""),
+        help="HMAC secret (or set PLACESWIKI_WEBHOOK_SECRET)",
+    )
+    notify.add_argument("--event", default="dataset.updated")
+    notify.add_argument("--dry-run", action="store_true", help="print the payload, send nothing")
 
     verify = sub.add_parser(
         "verify", parents=[common], help="parse an export with Google's protobuf messages"
@@ -713,6 +727,19 @@ def cmd_publish(args):
     return 0
 
 
+def cmd_notify(args):
+    with Store(args.db) as store:
+        ensure_schema(store.conn)
+        payload = build_event(store.conn, event=args.event, version=__version__)
+        if args.dry_run:
+            print(json.dumps(payload, indent=2))
+            _log(args, "dry run: nothing sent")
+            return 0
+        result = send_event(args.url, payload, secret=args.secret)
+        _log(args, "delivered=%(delivered)s status=%(status)s attempts=%(attempts)d" % result)
+        return 0 if result["delivered"] else 1
+
+
 def cmd_verify(args):
     try:
         result = verify_files(args.file, args.photo_index)
@@ -749,6 +776,7 @@ def main(argv=None):
         "serve": cmd_serve,
         "gaps": cmd_gaps,
         "publish": cmd_publish,
+        "notify": cmd_notify,
         "verify": cmd_verify,
         "stats": cmd_stats,
     }

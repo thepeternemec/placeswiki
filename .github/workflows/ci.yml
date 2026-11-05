@@ -56,6 +56,31 @@ jobs:
           python -c "import json; d=json.load(open('/tmp/nearby.json')); assert d['places'], d; assert d['places'][0]['id'].startswith('wc:'); print('served', len(d['places']), 'places')"
           curl -sf http://127.0.0.1:8080/health
 
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Build image
+        run: docker build -t placeswiki .
+      - name: Run it against a fixture database
+        run: |
+          python -m pip install -e .
+          mkdir -p data
+          python examples/fixture_db.py data/places.sqlite
+          docker run -d --name places -p 8080:8080 -v "$PWD/data:/data" placeswiki
+          sleep 4
+          curl -sf http://127.0.0.1:8080/health
+          curl -sf -X POST http://127.0.0.1:8080/v1/places:searchNearby \
+            -H "Content-Type: application/json" \
+            -d '{"locationRestriction":{"circle":{"center":{"latitude":41.89,"longitude":12.49},"radius":2000}}}' \
+            -o /tmp/nearby.json
+          python -c "import json; d=json.load(open('/tmp/nearby.json')); assert d['places']; print('docker served', len(d['places']), 'places')"
+          docker logs places
+          docker rm -f places
+
   google-compat:
     # The claim is "Google's parser accepts this". Here Google's parser proves it.
     runs-on: ubuntu-latest

@@ -2,45 +2,77 @@
 
 # placeswiki
 
-**Google Places, from the wiki.**
+**The open alternative to Google Places, for the places that don't move.**
 
-Coordinates, descriptions and photographs from Wikimedia —<br>
-keyed to Google place IDs, in one SQLite file you own.
+Historical places and landmarks, with coordinates, descriptions and Wikimedia
+photographs, served in the Google Places protocol from infrastructure you control.
 
 [CI](https://github.com/thepeternemec/placeswiki/actions/workflows/ci.yml) ·
 [API](docs/API.md) ·
-[Schema](SCHEMA.md) ·
+[Integration](docs/INTEGRATION.md) ·
+[Deploy](docs/DEPLOY.md) ·
 [Data licence](DATA-LICENSE.md)
 
 </div>
 
 ---
 
-A place should not cost money to display. Google's Places API bills per request
-and forbids keeping what you fetched. Wikimedia already hosts the facts and the
-photographs under licences that allow redistribution.
+## Google charges rent on places it did not create
 
-placeswiki builds that database, and answers Google's endpoints from it.
+Every pan of a map, every detail panel, every photo is a billable request. The
+terms also forbid storing what you fetched, so the cost never amortises: the
+more successful your product, the more you pay for the same village church.
 
-```js
-const BASE = "http://127.0.0.1:8080";   // was https://places.googleapis.com
-```
+Meanwhile the church, its coordinates and forty photographs of it are already on
+Wikipedia and Wikimedia Commons, under licences that permit redistribution.
 
-Your parser does not change. Neither does your error handling, your field masks,
-or the twenty-result cap you already code around.
+placeswiki turns that into a database you own, and answers Google's endpoints
+from it — so your existing client keeps working, and the meter stops.
 
-## Try it
+## Self-host it
 
 ```console
-$ pip install placeswiki
-$ placeswiki bulk fetch  --db world.sqlite --country Q215
-$ placeswiki bulk enrich --db world.sqlite --limit 500
-$ placeswiki serve       --db world.sqlite --port 8080
+$ git clone https://github.com/thepeternemec/placeswiki
+$ cd placeswiki
+$ python3 examples/fixture_db.py data/places.sqlite     # or build the real thing
+$ docker build -t placeswiki .
+$ docker run -d -p 8080:8080 -v "$PWD/data:/data" placeswiki
 ```
 
-No API key. No account. Python 3.9+, standard library only.
+Put it behind TLS — Caddy, nginx, or your platform's load balancer — and it is a
+service:
 
-## What it answers
+```console
+$ curl https://places.yourdomain.com/health
+{"status": "ok", "places": 500, "photos": 377, "google_linked": 0}
+```
+
+Recipes for Caddy, systemd, Fly.io and Render are in [docs/DEPLOY.md](docs/DEPLOY.md).
+No account, no API key, no per-request cost. One SQLite file is the whole state.
+
+## Point your app at it
+
+Your client already speaks this protocol. Change the base URL:
+
+```js
+// before: const BASE = "https://places.googleapis.com";
+const BASE = "https://places.yourdomain.com";
+
+const response = await fetch(`${BASE}/v1/places:searchNearby`, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "X-Goog-FieldMask": "places.id,places.displayName,places.location,places.photos",
+  },
+  body: JSON.stringify({
+    locationRestriction: {
+      circle: { center: { latitude: 46.0503, longitude: 14.5045 }, radius: 500 },
+    },
+    maxResultCount: 20,
+  }),
+});
+const { places } = await response.json();
+```
 
 | Endpoint | Google equivalent |
 | --- | --- |
@@ -48,47 +80,97 @@ No API key. No account. Python 3.9+, standard library only.
 | `POST /v1/places:searchText` | Text Search (New) |
 | `GET /v1/places/{id}` | Place Details (New) |
 
-`X-Goog-FieldMask` is honoured down to nested paths. Errors use Google's
-envelope. `--prefer-google-ids` returns `google_place_id` as `id` where a link
-exists, so apps that stored Google ids keep resolving them.
+Field masks, nested paths, error envelopes and the 20-result cap behave as they
+do upstream. The difference is what comes back: `wc:Q…` ids you own, Commons
+photos with author and licence attached, and nothing that expires. If you
+already store Google ids, `--prefer-google-ids` returns them where a link exists.
 
-The response is parsed in CI with `google.maps.places_v1` — Google's own messages.
-Compatibility is checked, not claimed.
+Full client examples in JavaScript, TypeScript and Python:
+[docs/INTEGRATION.md](docs/INTEGRATION.md).
 
-## What it holds
+## Tell your stack when data changes
 
-- **Places.** Every Wikidata item with a heritage designation and coordinates —
-  2,210,883 of them — with names, positions and descriptions.
-- **Photographs.** Commons images with their author, licence and source, because
-  CC BY-SA requires all three.
-- **Identifiers.** Stable `wc:` ids, plus a Google id where one has been matched.
-- **Bundles.** A directory someone can verify: payload, photos, attribution, and
-  a SHA-256 for every file.
+A reindex, a cache purge, a mobile bundle refresh — downstream systems should not
+poll. Send a signed event after every build:
 
-The 500-place Slovenia sample is 940 KB, or 300 KB slimmed for serving.
+```console
+$ placeswiki notify --db /data/places.sqlite \
+    --url https://api.yourapp.com/hooks/places \
+    --secret "$PLACESWIKI_WEBHOOK_SECRET"
+```
 
-## What it is not
+The receiver verifies HMAC-SHA256 over the raw body, in
+`X-Placeswiki-Signature`, the same convention Stripe and GitHub use:
 
-Not restaurants, opening hours, ratings or phone numbers. They churn, they are
-commercial, and Wikimedia does not track them. The scope is heritage, monuments
-and landmarks — narrow on purpose, so what is here is true.
+```js
+import { createHmac, timingSafeEqual } from "node:crypto";
 
-Coverage follows volunteer effort and is uneven by country. The tool never writes
-upstream; `placeswiki gaps` turns what is missing into a work list for human
-editors instead.
+export function verify(rawBody, header, secret) {
+  const expected = "sha256=" + createHmac("sha256", secret).update(rawBody).digest("hex");
+  return header.length === expected.length &&
+    timingSafeEqual(Buffer.from(header), Buffer.from(expected));
+}
+```
 
-## Docs
+A runnable receiver is in [examples/webhook_receiver.py](examples/webhook_receiver.py).
 
-[Architecture](docs/ARCHITECTURE.md) — stages, layers, rules ·
-[API](docs/API.md) — endpoints, masks, deliberate differences ·
-[Schema](SCHEMA.md) — field mapping to Places API (New) ·
-[Data licence](DATA-LICENSE.md) — what you may do with it ·
-[Contributing](CONTRIBUTING.md) — setup, rules, fixes upstream ·
-[Security](SECURITY.md) · [Changelog](CHANGELOG.md)
+## Build the data
+
+```console
+$ pip install placeswiki
+$ placeswiki bulk fetch  --db /data/places.sqlite --all-countries   # 2.2 M places
+$ placeswiki bulk enrich --db /data/places.sqlite --limit 500
+$ placeswiki engine resolve --db /data/places.sqlite                # Wikidata ids
+$ placeswiki photos --db /data/places.sqlite --rank --category      # scored photos
+$ placeswiki slim    --db /data/places.sqlite --out /data/serve.sqlite
+```
+
+| Command | What it does |
+| --- | --- |
+| `collect` | crawl by category, links, or a geo grid that survives the 500-result cap |
+| `bulk` | stage every Wikidata item with a heritage designation and coordinates |
+| `engine` | resolve articles to Wikidata ids, claims and lead images |
+| `photos` | resolve, score, rank and expand photographs |
+| `link` | attach Google place ids with method, confidence and evidence |
+| `publish` | a verifiable bundle: payload, photos, attribution, SHA-256 |
+| `serve` | the Places protocol, from your database |
+| `notify` | signed webhook when the dataset changes |
+| `gaps` | what is missing upstream, linked to Wikidata |
+
+## Photo intelligence, not photo scraping
+
+Every photograph is scored 0–100 and the reasons are stored beside the score:
+
+```
+resolution 40 · licence 25 · attribution 15 · lead image 20
+```
+
+```console
+$ placeswiki engine best --db /data/places.sqlite --place wc:Q10285
+commons:Colosseo 2020.jpg  score 89.0
+  - 12051x8442 → 40/40 resolution
+  - CC BY-SA 4.0 → 14/25 licence
+  - author present → 15/15 attribution
+  - lead image (P18) → 20/20
+```
+
+That is the part Google cannot give you at any price: not a photo, but a
+defensible choice of photo, with the attribution that makes using it lawful.
+
+## Honest scope
+
+Heritage, monuments, landmarks. No restaurants, opening hours, ratings or phone
+numbers — they churn, they are commercial, and Wikimedia does not track them.
+A narrow dataset that is true beats a broad one that is stale.
+
+Coverage follows volunteer effort and is uneven by country. This project never
+writes to Wikimedia; `gaps` turns what is missing into a work list for human
+editors, who fix it upstream where every downstream user benefits.
 
 ## Licence
 
 Code MIT. Text CC BY-SA 4.0 from Wikipedia. Photographs per file, attributed.
-Google place IDs under Google's terms. Fields this project generates are CC0.
+Google place ids under Google's terms, which permit storing that field.
+Fields this project generates are CC0.
 
 Content by Wikimedia contributors. Identifiers by Google. Schema by placeswiki.

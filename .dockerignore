@@ -1,0 +1,11 @@
+.git
+.github
+data
+dist
+tests
+docs
+examples
+*.sqlite
+*.md
+!README.md
+__pycache__

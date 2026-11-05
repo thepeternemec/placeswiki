@@ -3,6 +3,26 @@
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## [3.2.0] — 2026-11-05
+
+### Added
+
+- **`notify`**: signed webhook after a build or publish, so search indexes, CDN
+  caches and mobile bundles refresh instead of polling. HMAC-SHA256 over the raw
+  body in `X-Placeswiki-Signature`; retries 5xx, not 4xx.
+- **`docs/INTEGRATION.md`**: base-URL swap, JS/TS and Python clients, field mask
+  usage, what differs from Google and how to handle it, migration sequence.
+- **`docs/DEPLOY.md`**: Docker, Caddy, nginx, systemd, Fly/Render, sizing,
+  updates, backups, caching.
+- **`examples/client.py`** and **`examples/webhook_receiver.py`**: a stdlib
+  client and a receiver that rejects bad signatures with a 401.
+
+### Changed
+
+- README rewritten for people running this in production: self-hosting first,
+  a real hostname instead of `127.0.0.1` in the hero, and the webhook in the
+  main flow.
+
 ## [3.1.0] — 2026-11-05
 
 ### Added
