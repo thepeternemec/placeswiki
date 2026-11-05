@@ -232,8 +232,22 @@ def fold_text(text):
 
 
 def ensure_schema(conn):
-    """Create the clean layer if it is not there yet, migrating older files."""
+    """Create the clean layer if it is not there yet, migrating older files.
+
+    Column migrations run *before* the DDL: the schema creates an index on
+    ``name_folded``, and older databases do not have that column yet, so the
+    index would fail and take the whole upgrade with it.
+    """
     from .links import LINKS_DDL  # local import: links depends on this module's table
+
+    existing = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='places'"
+    ).fetchone()
+    if existing:
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(places)")}
+        if "name_folded" not in columns:
+            conn.execute("ALTER TABLE places ADD COLUMN name_folded TEXT")
+            conn.commit()
 
     conn.executescript(PLACES_DDL)
     conn.executescript(LINKS_DDL)

@@ -3,6 +3,16 @@
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## [3.4.1] — 2026-11-06
+
+### Fixed
+
+- **A 3.3 database could not be opened by 3.4.** `ensure_schema` created an index
+  on `name_folded` before the column existed, so opening a file built by the
+  previous release failed with `no such column`. Column migrations now run before
+  the DDL. Verified by upgrading the 3.3 release database in place and backfilling
+  all 500 rows.
+
 ## [3.4.0] — 2026-11-06
 
 Found by running the pipeline end to end against live Wikidata and serving the
