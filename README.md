@@ -7,6 +7,7 @@
 Historical places and landmarks, with coordinates, descriptions and Wikimedia
 photographs, served in the Google Places protocol from infrastructure you control.
 
+[Website](https://thepeternemec.github.io/placeswiki/) ·
 [CI](https://github.com/thepeternemec/placeswiki/actions/workflows/ci.yml) ·
 [API](docs/API.md) ·
 [Integration](docs/INTEGRATION.md) ·
@@ -28,6 +29,18 @@ Wikipedia and Wikimedia Commons, under licences that permit redistribution.
 
 placeswiki turns that into a database you own, and answers Google's endpoints
 from it — so your existing client keeps working, and the meter stops.
+
+## Website
+
+The project site is a static page in [`site/`](site/), in the visual grammar of
+Wikipedia: serif headings, plain rules, blue links, an infobox. It is deployed to
+GitHub Pages on every push and can be deployed to Vercel unchanged:
+
+```console
+$ npx vercel --prod        # uses vercel.json; outputDirectory = site
+```
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/thepeternemec/placeswiki)
 
 ## Self-host it
 

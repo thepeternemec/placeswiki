@@ -1,0 +1,198 @@
+/* Wikipedia's visual grammar: serif headings, sans body, quiet rules, blue links. */
+
+:root {
+  --ink: #202122;
+  --muted: #54595d;
+  --rule: #a2a9b1;
+  --rule-soft: #c8ccd1;
+  --panel: #f8f9fa;
+  --panel-head: #eaecf0;
+  --link: #3366cc;
+  --link-visited: #6b4ba1;
+  --accent: #0645ad;
+  --serif: "Linux Libertine", "Georgia", "Times New Roman", serif;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --mono: "SFMono-Regular", "Menlo", "Consolas", "Liberation Mono", monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #eaecf0;
+    --muted: #a2a9b1;
+    --rule: #54595d;
+    --rule-soft: #404244;
+    --panel: #27292d;
+    --panel-head: #33363b;
+    --link: #8ab4f8;
+    --link-visited: #c3a6e8;
+    --accent: #8ab4f8;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html { font-size: 100%; }
+
+body {
+  margin: 0;
+  background: var(--panel);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 0.875rem;
+  line-height: 1.65;
+}
+
+.wrap { max-width: 62rem; margin: 0 auto; padding: 0 1.25rem; }
+
+.skip {
+  position: absolute; left: -9999px;
+}
+.skip:focus {
+  left: 1rem; top: 1rem; z-index: 10;
+  background: var(--panel-head); padding: .5rem .75rem;
+}
+
+/* Top bar: a wordmark and section links, nothing else. */
+.bar {
+  background: var(--panel);
+  border-bottom: 1px solid var(--rule-soft);
+}
+.bar-inner {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 1rem; padding-top: .75rem; padding-bottom: .75rem;
+  flex-wrap: wrap;
+}
+.wordmark {
+  font-family: var(--serif);
+  font-size: 1.35rem;
+  color: var(--ink);
+  text-decoration: none;
+  letter-spacing: .01em;
+}
+.wordmark::after {
+  content: "";
+  display: inline-block;
+  width: .38rem; height: .38rem;
+  margin-left: .35rem;
+  border-radius: 50%;
+  background: var(--link);
+  vertical-align: middle;
+}
+nav { display: flex; gap: 1.1rem; flex-wrap: wrap; }
+nav a { color: var(--link); text-decoration: none; }
+nav a:hover { text-decoration: underline; }
+nav a.external::after { content: " ↗"; font-size: .8em; }
+
+main {
+  background: var(--panel);
+  padding-top: 1.5rem;
+  padding-bottom: 2.5rem;
+}
+
+h1, h2 {
+  font-family: var(--serif);
+  font-weight: normal;
+  color: var(--ink);
+}
+h1 {
+  font-size: 2.1rem;
+  margin: 0 0 .15rem;
+  padding-bottom: .35rem;
+  border-bottom: 1px solid var(--rule);
+}
+h2 {
+  font-size: 1.45rem;
+  margin: 2rem 0 .6rem;
+  padding-bottom: .25rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.from {
+  color: var(--muted);
+  font-size: .8rem;
+  margin: 0 0 1.2rem;
+}
+
+p { margin: .6rem 0 1rem; max-width: 46rem; }
+
+a { color: var(--link); text-decoration: none; }
+a:hover { text-decoration: underline; }
+a:visited { color: var(--link-visited); }
+
+strong { font-weight: 600; }
+
+code {
+  font-family: var(--mono);
+  font-size: .85em;
+  background: var(--panel-head);
+  padding: .1rem .3rem;
+  border-radius: 2px;
+}
+
+pre {
+  background: var(--panel-head);
+  border: 1px solid var(--rule-soft);
+  border-radius: 2px;
+  padding: .8rem 1rem;
+  overflow-x: auto;
+  max-width: 46rem;
+}
+pre code { background: none; padding: 0; font-size: .82rem; line-height: 1.55; }
+
+/* Infobox: the familiar right-hand fact table. */
+.infobox {
+  float: right;
+  width: 17rem;
+  margin: .25rem 0 1rem 1.5rem;
+  border: 1px solid var(--rule);
+  background: var(--panel);
+  font-size: .78rem;
+  line-height: 1.5;
+}
+.infobox-title {
+  background: var(--panel-head);
+  text-align: center;
+  font-weight: 600;
+  padding: .45rem .5rem;
+  border-bottom: 1px solid var(--rule);
+  font-family: var(--serif);
+  font-size: .95rem;
+}
+.infobox table { width: 100%; border-collapse: collapse; }
+.infobox th, .infobox td {
+  vertical-align: top;
+  padding: .35rem .5rem;
+  border-top: 1px solid var(--rule-soft);
+  text-align: left;
+}
+.infobox tr:first-child th, .infobox tr:first-child td { border-top: 0; }
+.infobox th { width: 38%; color: var(--muted); font-weight: 600; }
+
+.quote {
+  border-left: 3px solid var(--rule);
+  padding-left: .9rem;
+  color: var(--muted);
+  font-style: italic;
+  max-width: 40rem;
+}
+
+.edit {
+  margin-top: 2.5rem;
+  padding-top: .8rem;
+  border-top: 1px solid var(--rule-soft);
+  color: var(--muted);
+  font-size: .8rem;
+}
+
+.foot {
+  border-top: 1px solid var(--rule-soft);
+  color: var(--muted);
+  font-size: .78rem;
+  padding: 1.1rem 0 2rem;
+}
+
+@media (max-width: 640px) {
+  .infobox { float: none; width: auto; margin: 1rem 0; }
+  h1 { font-size: 1.75rem; }
+  h2 { font-size: 1.3rem; }
+}

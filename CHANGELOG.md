@@ -3,6 +3,16 @@
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## [3.3.0] — 2026-11-05
+
+### Added
+
+- **Project website** in `site/` — a static page in Wikipedia's visual grammar:
+  serif headings, quiet rules, blue links, an infobox, no build step and no
+  JavaScript. Deployed to GitHub Pages on every push; Vercel-ready via
+  `vercel.json` (`outputDirectory: site`).
+- `pages` workflow and a one-click Vercel deploy button.
+
 ## [3.2.0] — 2026-11-05
 
 ### Added

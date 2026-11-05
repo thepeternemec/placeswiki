@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>placeswiki — open historical places</title>
+<meta name="description" content="An open dataset of historical places and landmarks, with Wikimedia photographs, served in the Google Places protocol from infrastructure you control.">
+<meta property="og:title" content="placeswiki">
+<meta property="og:description" content="Open historical places and landmarks, served the way Google serves them.">
+<meta property="og:type" content="website">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+
+<header class="bar">
+  <div class="wrap bar-inner">
+    <a class="wordmark" href="/">placeswiki</a>
+    <nav aria-label="Sections">
+      <a href="#using">Use</a>
+      <a href="#data">Data</a>
+      <a href="#contribute">Contribute</a>
+      <a href="#licence">Licence</a>
+      <a class="external" href="https://github.com/thepeternemec/placeswiki">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main id="content" class="wrap">
+  <h1>placeswiki</h1>
+  <p class="from">From the open places dataset, written by its contributors.</p>
+
+  <aside class="infobox" aria-label="Quick facts">
+    <div class="infobox-title">placeswiki</div>
+    <table>
+      <tr><th>Type</th><td>Open dataset and server</td></tr>
+      <tr><th>Sources</th><td><a href="https://www.wikipedia.org">Wikipedia</a>, <a href="https://www.wikidata.org">Wikidata</a>, <a href="https://commons.wikimedia.org">Wikimedia Commons</a></td></tr>
+      <tr><th>Scope</th><td>Historical places and landmarks</td></tr>
+      <tr><th>Protocol</th><td>Places API (New)</td></tr>
+      <tr><th>Data licence</th><td><a href="https://github.com/thepeternemec/placeswiki/blob/main/DATA-LICENSE.md">CC BY-SA 4.0</a></td></tr>
+      <tr><th>Code licence</th><td><a href="https://github.com/thepeternemec/placeswiki/blob/main/LICENSE">MIT</a></td></tr>
+      <tr><th>Version</th><td>3.2.0</td></tr>
+      <tr><th>Repository</th><td><a href="https://github.com/thepeternemec/placeswiki">github.com/thepeternemec/placeswiki</a></td></tr>
+    </table>
+  </aside>
+
+  <p class="lead"><strong>placeswiki</strong> is an open dataset of historical places and landmarks — coordinates, descriptions and photographs — assembled from <a href="https://www.wikidata.org">Wikidata</a> and <a href="https://commons.wikimedia.org">Wikimedia Commons</a>, and served in the protocol of the Google Places API.</p>
+
+  <p>Places APIs are metered twice. Each lookup is billed, and the terms forbid keeping what you fetched, so the cost never falls as a product grows. The same facts — a church, its coordinate, forty photographs of it — are already published by volunteers under licences that permit redistribution.</p>
+
+  <p>placeswiki builds that database once, stores it in a single SQLite file, and answers the Google endpoints from it. A client changes one base URL and keeps its parser. Everything runs on hardware its operator controls; no account, key or per-request fee is involved.</p>
+
+  <h2 id="using">Using it</h2>
+  <p>Run the server, point a client at it, keep the rest of the code.</p>
+  <pre><code>docker build -t placeswiki .
+docker run -d -p 8080:8080 -v "$PWD/data:/data" placeswiki</code></pre>
+  <pre><code>const BASE = "https://places.yourdomain.com";
+await fetch(`${BASE}/v1/places:searchNearby`, {
+  method: "POST",
+  headers: { "X-Goog-FieldMask": "places.id,places.displayName,places.location" },
+  body: JSON.stringify({
+    locationRestriction: { circle: { center: { latitude: 46.05, longitude: 14.5 }, radius: 500 } }
+  })
+});</code></pre>
+  <p>The endpoints are <code>POST /v1/places:searchNearby</code>, <code>POST /v1/places:searchText</code> and <code>GET /v1/places/{id}</code>. Field masks, nested paths and error envelopes behave as they do upstream. Guides: <a href="https://github.com/thepeternemec/placeswiki/blob/main/docs/INTEGRATION.md">integration</a>, <a href="https://github.com/thepeternemec/placeswiki/blob/main/docs/DEPLOY.md">deployment</a>, <a href="https://github.com/thepeternemec/placeswiki/blob/main/docs/API.md">API</a>.</p>
+
+  <h2 id="data">The data</h2>
+  <p>Wikidata records about 2.2 million heritage-designated places with coordinates. Each one is staged, enriched with its Commons photograph, and given a stable identifier of the form <code>wc:Q10285</code>; Google place identifiers are attached only as an optional join key, never as the primary identity.</p>
+  <p>Photographs are scored rather than picked at random: resolution, licence, attribution and whether the community chose it as the lead image. The reasons are stored beside the score, so a client can explain its choice.</p>
+  <p>A 500-place sample from Slovenia ships with every release: 940&nbsp;KB of database, 377 photographs, 268&nbsp;KB slimmed for serving.</p>
+
+  <h2 id="contribute">Contributing</h2>
+  <p>The dataset is only as good as the volunteers behind it. Corrections belong upstream: a wrong coordinate is wrong in Wikidata, a missing author is missing on Commons. The tool lists what is absent — <code>placeswiki gaps</code> — with links to the items that need work.</p>
+  <p>Code contributions follow the <a href="https://github.com/thepeternemec/placeswiki/blob/main/CONTRIBUTING.md">contributing guide</a>. Tests run offline, no scraper is accepted, and the project never writes to Wikimedia on its own.</p>
+
+  <h2 id="licence">Licence</h2>
+  <p>Code is MIT. Text is CC BY-SA 4.0 from Wikipedia. Photographs keep their own licences, attributed per file. Google place identifiers remain Google's. Fields this project generates are released CC0. The full split is in <a href="https://github.com/thepeternemec/placeswiki/blob/main/DATA-LICENSE.md">DATA-LICENSE.md</a>.</p>
+  <p class="quote">Content by Wikimedia contributors. Identifiers by Google. Schema by placeswiki.</p>
+
+  <p class="edit"><a href="https://github.com/thepeternemec/placeswiki/edit/main/site/index.html">Edit this page</a> · <a href="https://github.com/thepeternemec/placeswiki">Source</a></p>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <p>This page is open source, like the dataset behind it. Text CC BY-SA 4.0 · Code MIT.</p>
+  </div>
+</footer>
+</body>
+</html>
