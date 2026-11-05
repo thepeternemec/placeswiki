@@ -3,6 +3,22 @@
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## [3.4.2] — 2026-11-06
+
+### Fixed
+
+- **Older slim databases could not be upgraded.** `slim` keeps only serving
+  columns, so a database published by 3.1 lacks `wikidata_id`,
+  `heritage_designations` and eight other columns that `ensure_schema` indexes.
+  Migration now restores every known column before the DDL runs, so an older
+  database — full or slim — opens, backfills folded names and can be re-slimmed.
+- `slim` dropped photo `score` and `source`, so a served database lost the
+  ranking it was built with. Both are copied now; `score_reasons` is left behind
+  deliberately, since the API never returns it and it cost 68 KB per 500 photos.
+
+Verified against the **published 3.1.0 slim dataset**: opened, migrated,
+377 photos scored, re-slimmed to 336 KB.
+
 ## [3.4.1] — 2026-11-06
 
 ### Fixed

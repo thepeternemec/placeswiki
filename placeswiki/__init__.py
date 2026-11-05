@@ -1,6 +1,6 @@
 """placeswiki - open historical places, keyed to Google ids, served locally."""
 
-__version__ = "3.4.1"
+__version__ = "3.4.2"
 
 from .api import APIError, MediaWiki
 from .crawl import GeoResult, crawl_category, crawl_links, geosearch

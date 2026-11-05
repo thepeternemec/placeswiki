@@ -231,6 +231,37 @@ def fold_text(text):
     return re.sub(r"\s+", " ", stripped.casefold()).strip()
 
 
+# Columns that have been added over time. Opening an older database — including
+# a slim one, which deliberately keeps only serving columns — adds whatever is
+# missing before any index references it.
+PLACE_COLUMN_MIGRATIONS = (
+    ("name_folded", "TEXT"),
+    ("language_code", "TEXT"),
+    ("formatted_address", "TEXT"),
+    ("short_formatted_address", "TEXT"),
+    ("adr_format_address", "TEXT"),
+    ("types", "TEXT DEFAULT '[]'"),
+    ("primary_type", "TEXT"),
+    ("business_status", "TEXT"),
+    ("website_uri", "TEXT"),
+    ("google_maps_uri", "TEXT"),
+    ("rating", "REAL"),
+    ("user_rating_count", "INTEGER"),
+    ("google_place_id", "TEXT"),
+    ("google_fetched_at", "REAL"),
+    ("match_confidence", "REAL"),
+    ("match_method", "TEXT"),
+    ("wikidata_id", "TEXT"),
+    ("heritage_designations", "TEXT"),
+    ("wikipedia_url", "TEXT"),
+    ("commons_category", "TEXT"),
+    ("country_code", "TEXT"),
+    ("source", "TEXT"),
+    ("created_at", "REAL"),
+    ("updated_at", "REAL"),
+)
+
+
 def ensure_schema(conn):
     """Create the clean layer if it is not there yet, migrating older files.
 
@@ -245,9 +276,10 @@ def ensure_schema(conn):
     ).fetchone()
     if existing:
         columns = {row[1] for row in conn.execute("PRAGMA table_info(places)")}
-        if "name_folded" not in columns:
-            conn.execute("ALTER TABLE places ADD COLUMN name_folded TEXT")
-            conn.commit()
+        for name, kind in PLACE_COLUMN_MIGRATIONS:
+            if name not in columns:
+                conn.execute("ALTER TABLE places ADD COLUMN %s %s" % (name, kind))
+        conn.commit()
 
     conn.executescript(PLACES_DDL)
     conn.executescript(LINKS_DDL)

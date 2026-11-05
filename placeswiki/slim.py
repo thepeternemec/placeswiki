@@ -45,6 +45,9 @@ CREATE TABLE place_photos (
     author_uri TEXT,
     license TEXT,
     position INTEGER DEFAULT 0,
+    score REAL,
+    score_reasons TEXT,
+    source TEXT,
     PRIMARY KEY (place_id, id)
 );
 """
@@ -79,6 +82,8 @@ PHOTO_COLUMNS = (
     "author_uri",
     "license",
     "position",
+    "score",
+    "source",
 )
 
 
