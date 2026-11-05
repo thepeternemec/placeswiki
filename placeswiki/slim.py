@@ -18,6 +18,7 @@ SLIM_DDL = """
 CREATE TABLE places (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
+    name_folded TEXT,
     language_code TEXT,
     lat REAL NOT NULL,
     lng REAL NOT NULL,
@@ -110,11 +111,17 @@ def build_slim(source_db, out_db, overwrite=False):
             """
             CREATE INDEX idx_places_geo ON places (lat, lng);
             CREATE INDEX idx_places_google ON places (google_place_id);
+            CREATE INDEX idx_places_name_folded ON places (name_folded);
+            CREATE INDEX idx_photos_name ON place_photos (name);
             CREATE INDEX idx_photos_place ON place_photos (place_id, position);
             """
         )
         out.commit()
         out.execute("DETACH DATABASE source")
+
+        from .schema import backfill_folded
+
+        backfill_folded(out)
         out.execute("VACUUM")
         out.commit()
 

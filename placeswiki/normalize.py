@@ -12,7 +12,7 @@ import json
 import re
 import time
 
-from .schema import ensure_schema, infer_types, photo_resource_name, slugify
+from .schema import ensure_schema, fold_text, infer_types, photo_resource_name, slugify
 
 TAG_RE = re.compile(r"<[^>]+>")
 WIKI_HOSTS = {
@@ -113,24 +113,26 @@ def normalize(conn, dedupe=True, drop_missing_coords=True):
 
         conn.execute(
             """
-            INSERT INTO places (id, name, language_code, formatted_address,
+            INSERT INTO places (id, name, name_folded, language_code, formatted_address,
                                 short_formatted_address, adr_format_address,
                                 lat, lng, types, primary_type, business_status,
                                 website_uri, google_maps_uri, google_place_id,
                                 google_fetched_at, match_confidence, match_method,
                                 wikidata_id, wikipedia_url, commons_category,
                                 country_code, source, created_at, updated_at)
-            VALUES (?, ?, ?, NULL, NULL, NULL, ?, ?, ?, ?, NULL,
+            VALUES (?, ?, ?, ?, NULL, NULL, NULL, ?, ?, ?, ?, NULL,
                     NULL, NULL, NULL, NULL, NULL, NULL, ?, ?, NULL, NULL,
                     'wikimedia', ?, ?)
             ON CONFLICT(id) DO UPDATE SET
-                name=excluded.name, lat=excluded.lat, lng=excluded.lng,
+                name=excluded.name, name_folded=excluded.name_folded,
+                lat=excluded.lat, lng=excluded.lng,
                 types=excluded.types, primary_type=excluded.primary_type,
                 wikipedia_url=excluded.wikipedia_url, updated_at=excluded.updated_at
             """,
             (
                 place_id,
                 name,
+                fold_text(name),
                 "en",
                 record.get("lat"),
                 record.get("lon"),

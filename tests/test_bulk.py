@@ -180,6 +180,23 @@ class TestStage(unittest.TestCase):
         self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM wd_places").fetchone()[0], 2)
 
 
+class FakeWikidataLabels:
+    def __init__(self, labels):
+        self.labels = labels
+        self.calls = 0
+
+    def get(self, params=None, **kwargs):
+        self.calls += 1
+        ids = (kwargs.get("ids") or "").split("|")
+        return {
+            "entities": {
+                qid: {"labels": {"en": {"value": self.labels.get(qid, "")}}}
+                for qid in ids
+                if self.labels.get(qid)
+            }
+        }
+
+
 class TestEnrich(unittest.TestCase):
     def setUp(self):
         self.conn = sqlite3.connect(":memory:")
@@ -210,7 +227,7 @@ class TestEnrich(unittest.TestCase):
                     "width": 1200,
                     "height": 800,
                     "license": "CC BY-SA 4.0",
-                    "artist": "Jane",
+                    "artist": '<a href="//commons.wikimedia.org/wiki/User:Jane">Jane</a>',
                     "description_url": "https://commons.wikimedia.org/wiki/File:Grad_Sne%C5%BEnik.jpg",
                 }
             ]
@@ -224,6 +241,37 @@ class TestEnrich(unittest.TestCase):
         self.assertIsNotNone(place["commons_category"])
         photo = self.conn.execute("SELECT * FROM place_photos WHERE place_id='wc:Q1000'").fetchone()
         self.assertEqual(photo["license"], "CC BY-SA 4.0")
+        self.assertEqual(photo["author_name"], "Jane")
+        self.assertEqual(photo["author_uri"], "https://commons.wikimedia.org/wiki/User:Jane")
+
+    def test_missing_label_is_resolved_from_wikidata(self):
+        self.conn.execute(
+            "INSERT INTO wd_places (qid, label, lat, lon, status)"
+            " VALUES ('Q9001', '', 46.1, 14.6, 'pending')"
+        )
+        self.conn.commit()
+        self._patch_images([])
+        result = enrich(
+            self.conn, commons=None, wikidata=FakeWikidataLabels({"Q9001": "Bare Chapel"})
+        )
+        self.assertEqual(result["places"], 3)
+        row = self.conn.execute(
+            "SELECT name, name_folded FROM places WHERE id='wc:Q9001'"
+        ).fetchone()
+        self.assertEqual(row["name"], "Bare Chapel")
+        self.assertEqual(row["name_folded"], "bare chapel")
+
+    def test_unresolvable_label_marks_row_failed(self):
+        self.conn.execute(
+            "INSERT INTO wd_places (qid, label, lat, lon, status)"
+            " VALUES ('Q9002', '', 46.2, 14.7, 'pending')"
+        )
+        self.conn.commit()
+        self._patch_images([])
+        enrich(self.conn, commons=None, wikidata=FakeWikidataLabels({}))
+        row = self.conn.execute("SELECT status, error FROM wd_places WHERE qid='Q9002'").fetchone()
+        self.assertEqual(row["status"], "failed")
+        self.assertEqual(row["error"], "no label")
 
     def test_enrich_is_idempotent(self):
         self._patch_images([])

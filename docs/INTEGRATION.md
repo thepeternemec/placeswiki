@@ -41,9 +41,15 @@ export async function nearby(lat: number, lon: number, radius = 500): Promise<Pl
 }
 ```
 
-Photo URLs come from the bundle's `photos.json`, keyed by the `photos[].name`
-resource name. Resource names are stable; the URLs are Wikimedia upload URLs and
-carry the file's licence.
+Fetch the image from the `photos[].name` resource name:
+
+```ts
+const src = `${BASE}/v1/${place.photos![0].name}/media`;   // 302 -> Wikimedia URL
+```
+
+The redirect lands on the Commons upload URL, so the licence and author are the
+ones recorded alongside it. If you ship a static bundle instead of a server, the
+same mapping is in `photos.json`.
 
 ## 3. Python
 

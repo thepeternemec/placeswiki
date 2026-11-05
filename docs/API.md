@@ -17,6 +17,7 @@ CI parses the output with `google.maps.places_v1`, so compatibility is checked.
 | `POST` | `/v1/places:searchNearby` | Nearby Search (New) |
 | `POST` | `/v1/places:searchText` | Text Search (New) |
 | `GET` | `/v1/places/{id}` | Place Details (New) |
+| `GET` | `/v1/{photo_name}/media` | Place Photo (New) |
 | `GET` | `/v1/meta` | dataset counts |
 | `GET` | `/health` | health check |
 
@@ -40,9 +41,25 @@ $ curl -s localhost:8080/v1/places:searchNearby \
 | `locationRestriction.circle.radius` | 1–50 000 m |
 | `maxResultCount` / `pageSize` | capped at 20 |
 | `includedTypes`, `includedPrimaryTypes` | matched against `types` + `primaryType` |
-| `textQuery` | substring match on the name |
+| `textQuery` | accent- and case-insensitive substring match on the name |
 | `locationBias.circle.center` | ranks text results by distance |
 | `languageCode`, `rankPreference` | ignored; single language, nearest-first |
+
+## Photos
+
+`places[].photos[].name` is a resource name such as
+`places/wc:Q10285/photos/commons-colosseo-2020`. Fetch the image through the
+media endpoint, exactly as with Google's photo names:
+
+```console
+$ curl -sL "https://places.yourdomain.com/v1/places/wc:Q10285/photos/commons-colosseo-2020/media" -o photo.jpg
+```
+
+The server answers `302` with a `Location` pointing at the Wikimedia upload URL,
+plus `Cache-Control` and `Access-Control-Allow-Origin`, so a browser or a mobile
+client can follow it directly. `maxWidthPx` and `maxHeightPx` are accepted and
+ignored — Commons already serves thumbnails, and proxying bytes would double
+bandwidth for no benefit.
 
 ## Field masks
 

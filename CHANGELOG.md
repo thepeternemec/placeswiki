@@ -3,6 +3,32 @@
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## [3.4.0] — 2026-11-06
+
+Found by running the pipeline end to end against live Wikidata and serving the
+result under concurrent load.
+
+### Added
+
+- **Photo media endpoint**: `GET /v1/{photo_name}/media` answers `302` with the
+  Wikimedia URL, `Cache-Control` and CORS. Before this, clients received photo
+  resource names they had no way to resolve — the API could describe a photo but
+  not deliver it.
+- **Accent-insensitive text search**: `Kunsperk` now finds `Kunšperk`. A
+  `name_folded` column (NFKD, combining marks stripped, casefolded) is written by
+  `normalize` and `bulk`, backfilled by `slim` for older databases, and queried
+  by `searchText`.
+
+### Fixed
+
+- **Server died under concurrency.** The stdlib listen backlog of 5 dropped
+  connections, and one SQLite connection was shared across request threads.
+  Connections are now thread-local, the backlog is 128, and handler exceptions
+  return a 500 JSON envelope instead of closing the socket.
+- **HTML in author names**, again: `bulk enrich` wrote the raw Commons artist
+  field, so `<a href=…>` reached `authorAttributions`. Cleaning now happens at
+  write time, and ranking persists the cleaned value.
+
 ## [3.3.0] — 2026-11-05
 
 ### Added

@@ -25,6 +25,8 @@ import json
 import math
 import re
 import sqlite3
+import threading
+import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 
@@ -115,15 +117,44 @@ def apply_mask(place, mask):
 
 
 class PlaceIndex:
-    """Read-only queries over a slim database."""
+    """Read-only queries over a slim database.
+
+    One connection per thread: SQLite connections are not safe to share across
+    concurrent cursors, and the server is threaded. Connections are opened
+    lazily, so the cost is paid once per worker thread.
+    """
 
     def __init__(self, db_path, prefer_google_ids=False):
-        self.conn = sqlite3.connect("file:%s?mode=ro" % db_path, uri=True, check_same_thread=False)
-        self.conn.row_factory = sqlite3.Row
+        self.db_path = db_path
         self.prefer_google_ids = prefer_google_ids
+        self._local = threading.local()
+        self._connections = []
+        self._lock = threading.Lock()
+        self._connect()  # fail fast if the file is missing or unreadable
+
+    def _connect(self):
+        conn = sqlite3.connect("file:%s?mode=ro" % self.db_path, uri=True, check_same_thread=False)
+        conn.row_factory = sqlite3.Row
+        with self._lock:
+            self._connections.append(conn)
+        return conn
+
+    @property
+    def conn(self):
+        conn = getattr(self._local, "conn", None)
+        if conn is None:
+            conn = self._connect()
+            self._local.conn = conn
+        return conn
 
     def close(self):
-        self.conn.close()
+        with self._lock:
+            for conn in self._connections:
+                try:
+                    conn.close()
+                except sqlite3.Error:
+                    pass
+            self._connections = []
 
     # -- rows -> Places API payload ----------------------------------
 
@@ -217,13 +248,31 @@ class PlaceIndex:
         if not query or not query.strip():
             raise BadRequest("textQuery must not be empty")
         limit = max(1, min(int(limit or MAX_RESULTS), MAX_RESULTS))
-        pattern = "%" + query.strip().replace("%", "").replace("_", " ") + "%"
-        rows = self.conn.execute(
-            "SELECT * FROM places WHERE name LIKE ? COLLATE NOCASE LIMIT 200", (pattern,)
-        ).fetchall()
+
+        columns = {row[1] for row in self.conn.execute("PRAGMA table_info(places)")}
+        folded = "name_folded" in columns
+        if folded:
+            from .schema import fold_text
+
+            pattern = "%" + fold_text(query).replace("%", "").replace("_", " ") + "%"
+            rows = self.conn.execute(
+                "SELECT * FROM places WHERE name_folded LIKE ? LIMIT 200", (pattern,)
+            ).fetchall()
+        else:
+            pattern = "%" + query.strip().replace("%", "").replace("_", " ") + "%"
+            rows = self.conn.execute(
+                "SELECT * FROM places WHERE name LIKE ? COLLATE NOCASE LIMIT 200", (pattern,)
+            ).fetchall()
         if lat is not None and lon is not None:
             rows = sorted(rows, key=lambda row: haversine_m(lat, lon, row["lat"], row["lng"]))
         return [self._place(row, self._photos(row["id"])) for row in rows[:limit]]
+
+    def photo(self, name):
+        """Resolve a photo resource name to its Wikimedia URL."""
+        row = self.conn.execute("SELECT url FROM place_photos WHERE name = ?", (name,)).fetchone()
+        if not row:
+            raise NotFound("no photo named %s" % name)
+        return row["url"]
 
     def get(self, place_id):
         row = self.conn.execute(
@@ -245,6 +294,7 @@ class PlaceIndex:
 ROUTE_NEARBY = re.compile(r"^/v1/places:searchNearby$")
 ROUTE_TEXT = re.compile(r"^/v1/places:searchText$")
 ROUTE_GET = re.compile(r"^/v1/places/([^/]+)$")
+ROUTE_MEDIA = re.compile(r"^/v1/(places/[^/]+/photos/[^/]+)/media$")
 
 
 def make_handler(index):
@@ -275,6 +325,20 @@ def make_handler(index):
                 raise BadRequest("invalid JSON body: %s" % exc) from exc
 
         def do_GET(self):
+            try:
+                return self._get()
+            except Exception:
+                traceback.print_exc()
+                return self._error(500, "internal error", "INTERNAL")
+
+        def do_POST(self):
+            try:
+                return self._post()
+            except Exception:
+                traceback.print_exc()
+                return self._error(500, "internal error", "INTERNAL")
+
+        def _get(self):
             path = urlparse(self.path).path
             if path in ("/health", "/healthz"):
                 return self._send(200, {"status": "ok", **index.stats()})
@@ -282,6 +346,21 @@ def make_handler(index):
                 return self._send(
                     200, {"dataset": index.stats(), "protocol": "places.googleapis.com/v1"}
                 )
+            media = ROUTE_MEDIA.match(path)
+            if media:
+                try:
+                    url = index.photo(media.group(1))
+                except NotFound as exc:
+                    return self._error(404, str(exc), "NOT_FOUND")
+                # Google serves bytes here; we redirect to Commons, which is
+                # where the licence and the CDN already live.
+                self.send_response(302)
+                self.send_header("Location", url)
+                self.send_header("Cache-Control", "public, max-age=86400")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                return None
+
             match = ROUTE_GET.match(path)
             if match:
                 mask = parse_field_mask(self.headers.get("X-Goog-FieldMask"))
@@ -292,7 +371,7 @@ def make_handler(index):
                 return self._send(200, apply_mask(place, mask))
             return self._error(404, "unknown path %s" % path, "NOT_FOUND")
 
-        def do_POST(self):
+        def _post(self):
             path = urlparse(self.path).path
             mask = parse_field_mask(self.headers.get("X-Goog-FieldMask"))
             try:
@@ -330,8 +409,16 @@ def make_handler(index):
     return Handler
 
 
+class PlacesHTTPServer(ThreadingHTTPServer):
+    """Threaded server sized for real traffic, not the stdlib default of 5."""
+
+    daemon_threads = True
+    request_queue_size = 128
+    allow_reuse_address = True
+
+
 def make_server(db_path, host="127.0.0.1", port=8080, prefer_google_ids=False):
     index = PlaceIndex(db_path, prefer_google_ids=prefer_google_ids)
-    server = ThreadingHTTPServer((host, port), make_handler(index))
+    server = PlacesHTTPServer((host, port), make_handler(index))
     server.index = index
     return server

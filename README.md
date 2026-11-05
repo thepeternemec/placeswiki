@@ -79,6 +79,7 @@ const { places } = await (await fetch(`${BASE}/v1/places:searchNearby`, {
 | `POST /v1/places:searchNearby` | Nearby Search (New) |
 | `POST /v1/places:searchText` | Text Search (New) |
 | `GET /v1/places/{id}` | Place Details (New) |
+| `GET /v1/{photo_name}/media` | Place Photo (New) |
 
 Field masks, nested paths and error envelopes behave as they do upstream.
 Details and deliberate differences: [docs/API.md](docs/API.md).

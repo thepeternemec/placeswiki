@@ -131,6 +131,7 @@ PLACES_DDL = """
 CREATE TABLE IF NOT EXISTS places (
     id                  TEXT PRIMARY KEY,      -- namespaced id, e.g. wc:Q10285
     name                TEXT NOT NULL,
+    name_folded         TEXT,                  -- accent- and case-folded for search
     language_code       TEXT DEFAULT 'en',
     formatted_address   TEXT,                  -- Google-only, may be NULL
     short_formatted_address TEXT,
@@ -159,6 +160,7 @@ CREATE TABLE IF NOT EXISTS places (
 );
 CREATE INDEX IF NOT EXISTS idx_places_geo ON places (lat, lng);
 CREATE INDEX IF NOT EXISTS idx_places_qid ON places (wikidata_id);
+CREATE INDEX IF NOT EXISTS idx_places_name_folded ON places (name_folded);
 
 CREATE TABLE IF NOT EXISTS place_photos (
     id              TEXT NOT NULL,             -- commons:File:...
@@ -181,6 +183,7 @@ CREATE TABLE IF NOT EXISTS place_photos (
     PRIMARY KEY (place_id, id)   -- the same photo may illustrate several places
 );
 CREATE INDEX IF NOT EXISTS idx_photos_place ON place_photos (place_id, position);
+CREATE INDEX IF NOT EXISTS idx_photos_name ON place_photos (name);
 
 CREATE TABLE IF NOT EXISTS google_matches (
     place_id        TEXT NOT NULL,
@@ -214,12 +217,41 @@ DROP TABLE IF EXISTS places;
 """
 
 
+def fold_text(text):
+    """Lowercase and strip diacritics so "Kunsperk" finds "Kunšperk".
+
+    NFKD splits letters from their combining marks, which are then dropped:
+    š -> s, ř -> r, ß -> ss is *not* handled (it is a distinct letter, and
+    folding it silently would be worse than a failed search).
+    """
+    import unicodedata
+
+    decomposed = unicodedata.normalize("NFKD", text or "")
+    stripped = "".join(ch for ch in decomposed if not unicodedata.combining(ch))
+    return re.sub(r"\s+", " ", stripped.casefold()).strip()
+
+
 def ensure_schema(conn):
-    """Create the clean layer if it is not there yet."""
+    """Create the clean layer if it is not there yet, migrating older files."""
     from .links import LINKS_DDL  # local import: links depends on this module's table
 
     conn.executescript(PLACES_DDL)
     conn.executescript(LINKS_DDL)
+
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(places)")}
+    if "name_folded" not in columns:
+        conn.execute("ALTER TABLE places ADD COLUMN name_folded TEXT")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_places_name_folded ON places (name_folded)")
+    conn.commit()
+
+
+def backfill_folded(conn, batch=2000):
+    """Fill ``name_folded`` for rows written before the column existed."""
+    rows = conn.execute("SELECT id, name FROM places WHERE name_folded IS NULL").fetchall()
+    for row in rows:
+        conn.execute("UPDATE places SET name_folded = ? WHERE id = ?", (fold_text(row[1]), row[0]))
+    conn.commit()
+    return len(rows)
 
 
 def rebuild_schema(conn):
@@ -323,7 +355,7 @@ def infer_types(record):
         for key, value in infobox.items()
         if any(key.lower().startswith(k) for k in INFOBOX_TYPE_KEYS)
     ]
-    haystack = " ".join([record.get("title", "")] + categories + semantic).lower()
+    haystack = " ".join([record.get("title") or ""] + categories + semantic).lower()
 
     found = []
     for keyword, google_type in CATEGORY_RULES:

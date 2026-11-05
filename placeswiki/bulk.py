@@ -22,7 +22,8 @@ import json
 import time
 
 from .images import fetch_imageinfo
-from .schema import infer_types, slugify
+from .intel import clean_author
+from .schema import fold_text, infer_types, slugify
 from .wikidata import heritage_query, parse_row
 
 WD_DDL = """
@@ -152,6 +153,39 @@ def stage_countries(conn, client, page_size=BATCH, limit=None, log=None):
     return total
 
 
+LANGUAGE_FALLBACKS = "en|mul|sl|de|it|fr|es|hr"
+
+
+def fetch_labels(api, qids, batch=50):
+    """Resolve display labels for items whose SPARQL label was missing.
+
+    A row without a label would otherwise be served as ``Q103848509``, which is
+    not a name anyone can read. One batched request per fifty gaps is cheap
+    insurance against that.
+    """
+    labels = {}
+    qids = [qid for qid in qids if qid]
+    for start in range(0, len(qids), batch):
+        chunk = qids[start : start + batch]
+        payload = api.get(
+            action="wbgetentities",
+            ids="|".join(chunk),
+            props="labels",
+            languages=LANGUAGE_FALLBACKS,
+            formatversion=2,
+        )
+        for qid, entity in (payload.get("entities") or {}).items():
+            values = entity.get("labels") or {}
+            if not values:
+                continue
+            # prefer English, then any label the item carries
+            if "en" in values:
+                labels[qid] = values["en"]["value"]
+            else:
+                labels[qid] = next(iter(values.values()))["value"]
+    return labels
+
+
 def pending(conn, limit=None):
     sql = "SELECT * FROM wd_places WHERE status = 'pending' ORDER BY qid"
     if limit:
@@ -159,7 +193,7 @@ def pending(conn, limit=None):
     return conn.execute(sql).fetchall()
 
 
-def enrich(conn, commons, limit=None, log=None):
+def enrich(conn, commons, limit=None, log=None, wikidata=None):
     """Turn staged rows into clean ``places`` (+ photos) and mark them done.
 
     Only ``P18`` images are resolved, because they are already in the SPARQL
@@ -170,6 +204,9 @@ def enrich(conn, commons, limit=None, log=None):
     if not rows:
         return {"places": 0, "photos": 0, "requests": 0}
 
+    unlabeled = [row["qid"] for row in rows if not (row["label"] or row["enwiki_title"])]
+    resolved_labels = fetch_labels(wikidata, unlabeled) if (unlabeled and wikidata) else {}
+
     files = [row["image_file"] for row in rows if row["image_file"]]
     images = {}
     if files:
@@ -179,10 +216,18 @@ def enrich(conn, commons, limit=None, log=None):
     stamp = time.time()
     created = photos = 0
     for row in rows:
+        name = row["label"] or row["enwiki_title"] or resolved_labels.get(row["qid"], "")
+        if not name:
+            conn.execute(
+                "UPDATE wd_places SET status='failed', error='no label' WHERE qid = ?",
+                (row["qid"],),
+            )
+            continue
+
         place_id = "wc:" + row["qid"]
         types = infer_types(
             {
-                "title": row["label"] or row["enwiki_title"],
+                "title": name,
                 "categories": [row["commons_category"]] if row["commons_category"] else [],
                 "infobox": {},
             }
@@ -190,12 +235,13 @@ def enrich(conn, commons, limit=None, log=None):
         heritage = json.loads(row["heritage"] or "[]")
         conn.execute(
             """
-            INSERT INTO places (id, name, language_code, lat, lng, types, primary_type,
+            INSERT INTO places (id, name, name_folded, language_code, lat, lng, types, primary_type,
                                 wikidata_id, wikipedia_url, commons_category,
                                 heritage_designations, source, created_at, updated_at)
-            VALUES (?, ?, 'en', ?, ?, ?, ?, ?, ?, ?, ?, 'wikidata', ?, ?)
+            VALUES (?, ?, ?, 'en', ?, ?, ?, ?, ?, ?, ?, ?, 'wikidata', ?, ?)
             ON CONFLICT(id) DO UPDATE SET
-                name=excluded.name, lat=excluded.lat, lng=excluded.lng,
+                name=excluded.name, name_folded=excluded.name_folded,
+                lat=excluded.lat, lng=excluded.lng,
                 types=excluded.types, primary_type=excluded.primary_type,
                 commons_category=excluded.commons_category,
                 heritage_designations=excluded.heritage_designations,
@@ -203,7 +249,8 @@ def enrich(conn, commons, limit=None, log=None):
             """,
             (
                 place_id,
-                row["label"] or row["enwiki_title"] or row["qid"],
+                name,
+                fold_text(name),
                 row["lat"],
                 row["lon"],
                 json.dumps(types),
@@ -222,6 +269,7 @@ def enrich(conn, commons, limit=None, log=None):
 
         image = images.get(row["image_file"])
         if image:
+            author, author_uri = clean_author(image.get("artist"))
             photo_id = "commons:" + row["image_file"][5:]
             conn.execute(
                 """
@@ -241,8 +289,8 @@ def enrich(conn, commons, limit=None, log=None):
                     image.get("description_url"),
                     image.get("width"),
                     image.get("height"),
-                    image.get("artist"),
-                    None,
+                    author,
+                    author_uri or None,
                     image.get("license"),
                     stamp,
                 ),

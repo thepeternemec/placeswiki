@@ -116,10 +116,12 @@ def rank_photos(conn, place_id=None):
             scored.append((score, reasons, photo))
         scored.sort(key=lambda item: -item[0])
         for index, (score, reasons, photo) in enumerate(scored):
+            author, author_uri = clean_author(photo["author_name"])
             conn.execute(
-                "UPDATE place_photos SET score = ?, score_reasons = ?, position = ?"
+                "UPDATE place_photos SET score = ?, score_reasons = ?, position = ?,"
+                " author_name = ?, author_uri = COALESCE(?, author_uri)"
                 " WHERE place_id = ? AND id = ?",
-                (score, json.dumps(reasons), index, pid, photo["id"]),
+                (score, json.dumps(reasons), index, author, author_uri or None, pid, photo["id"]),
             )
             ranked += 1
     conn.commit()

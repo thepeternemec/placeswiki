@@ -91,6 +91,19 @@ class TestRanking(DB):
         self.assertEqual(best["position"], 0)
         self.assertTrue(json.loads(best["score_reasons"]))
 
+    def test_rank_persists_cleaned_attribution(self):
+        self.add_photo(
+            "commons:html.jpg",
+            3000,
+            2000,
+            "CC0",
+            '<a href="//commons.wikimedia.org/wiki/User:Jane">Jane</a>',
+        )
+        rank_photos(self.conn)
+        row = self.conn.execute("SELECT author_name, author_uri FROM place_photos").fetchone()
+        self.assertEqual(row["author_name"], "Jane")
+        self.assertEqual(row["author_uri"], "https://commons.wikimedia.org/wiki/User:Jane")
+
     def test_repair_attribution_strips_html(self):
         self.add_photo(
             "commons:x.jpg",

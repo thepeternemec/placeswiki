@@ -22,6 +22,11 @@ from placeswiki.serve import (
 from placeswiki.slim import build_slim
 
 
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
 def make_source(path):
     conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
@@ -30,6 +35,7 @@ def make_source(path):
         ("wc:Q1", "Near Place", 46.0503, 14.5045, '["historical_landmark"]'),
         ("wc:Q2", "Far Place", 46.2000, 14.7000, '["church"]'),
         ("wc:Q3", "Another Near", 46.0505, 14.5047, '["museum"]'),
+        ("wc:Q4", "Kunšperk", 46.0593, 15.6842, '["historical_landmark"]'),
     ]
     for place_id, name, lat, lng, types in places:
         conn.execute(
@@ -88,7 +94,7 @@ class TestSlim(unittest.TestCase):
 
     def test_build_only_copies_serving_tables(self):
         stats = build_slim(self.source, self.slim)
-        self.assertEqual(stats["places"], 3)
+        self.assertEqual(stats["places"], 4)
         self.assertEqual(stats["photos"], 1)
         conn = sqlite3.connect(self.slim)
         tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
@@ -136,6 +142,20 @@ class TestIndex(unittest.TestCase):
     def test_nearby_rejects_bad_radius(self):
         with self.assertRaises(BadRequest):
             self.index.nearby(46.0, 14.5, 0)
+
+    def test_text_search_is_accent_insensitive(self):
+        self.assertEqual([p["id"] for p in self.index.text_search("Kunsperk")], ["wc:Q4"])
+        self.assertEqual([p["id"] for p in self.index.text_search("kunšperk")], ["wc:Q4"])
+        self.assertEqual([p["id"] for p in self.index.text_search("KUNSPERK")], ["wc:Q4"])
+
+    def test_photo_resolves_to_url(self):
+        self.assertEqual(self.index.photo("places/wc:Q1/photos/a"), "https://u/a")
+
+    def test_unknown_photo_raises(self):
+        from placeswiki.serve import NotFound
+
+        with self.assertRaises(NotFound):
+            self.index.photo("places/nope/photos/nope")
 
     def test_text_search_ranks_by_distance_when_biased(self):
         places = self.index.text_search("Place", lat=46.2, lon=14.7)
@@ -226,6 +246,38 @@ class TestHTTP(unittest.TestCase):
         status, body = self._post("/v2/nope", {})
         self.assertEqual(status, 404)
         self.assertEqual(body["error"]["status"], "NOT_FOUND")
+
+    def test_photo_media_redirects(self):
+        name = "places/wc:Q1/photos/a"
+        request = urllib.request.Request("http://127.0.0.1:%d/v1/%s/media" % (self.port, name))
+        opener = urllib.request.build_opener(NoRedirect)
+        with self.assertRaises(urllib.error.HTTPError) as caught:
+            opener.open(request, timeout=5)
+        self.assertEqual(caught.exception.code, 302)
+        self.assertEqual(caught.exception.headers["Location"], "https://u/a")
+
+    def test_photo_media_unknown_is_404(self):
+        request = urllib.request.Request(
+            "http://127.0.0.1:%d/v1/places/x/photos/y/media" % self.port
+        )
+        opener = urllib.request.build_opener(NoRedirect)
+        with self.assertRaises(urllib.error.HTTPError) as caught:
+            opener.open(request, timeout=5)
+        self.assertEqual(caught.exception.code, 404)
+
+    def test_concurrent_requests_all_succeed(self):
+        import concurrent.futures
+
+        body = {
+            "locationRestriction": {
+                "circle": {"center": {"latitude": 46.05, "longitude": 14.5}, "radius": 5000}
+            },
+        }
+        with concurrent.futures.ThreadPoolExecutor(max_workers=12) as pool:
+            results = list(
+                pool.map(lambda _: self._post("/v1/places:searchNearby", body)[0], range(40))
+            )
+        self.assertEqual(results, [200] * 40)
 
     def test_health_and_meta(self):
         for path in ("/health", "/v1/meta"):
