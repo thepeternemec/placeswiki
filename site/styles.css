@@ -143,6 +143,8 @@ body {
 @media (prefers-color-scheme: dark) {
   #suggestions a:hover, #suggestions li.active a { background: #2a3a50; }
 }
+#suggestions mark { background: #fef6c7; color: inherit; padding: 0; }
+@media (prefers-color-scheme: dark) { #suggestions mark { background: #4a4322; } }
 #suggestions .sug-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #suggestions .sug-meta { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 #suggestions .empty { padding: .45rem .65rem; color: var(--muted); }

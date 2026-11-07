@@ -39,6 +39,20 @@
     items = [];
   }
 
+  const escapeHtml = (text) =>
+    text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  function highlight(name, query) {
+    const needle = fold(query.trim());
+    const at = fold(name).indexOf(needle);
+    if (!needle || at === -1) return escapeHtml(name);
+    return (
+      escapeHtml(name.slice(0, at)) +
+      "<mark>" + escapeHtml(name.slice(at, at + needle.length)) + "</mark>" +
+      escapeHtml(name.slice(at + needle.length))
+    );
+  }
+
   function resultUrl(place) {
     if (/^Q\d+$/.test(place.i)) {
       return "https://www.wikidata.org/wiki/" + place.i;
@@ -70,8 +84,9 @@
     list.innerHTML = items
       .map(
         (place, index) =>
-          '<li role="option" id="sug-' + index + '"><a href="' + resultUrl(place) + '">' +
-          '<span class="sug-name">' + place.n.replace(/[<>&]/g, "") + "</span>" +
+          '<li role="option" id="sug-' + index + '" aria-selected="false">' +
+          '<a href="' + resultUrl(place) + '">' +
+          '<span class="sug-name">' + highlight(place.n, query) + "</span>" +
           '<span class="sug-meta">' + place.lat.toFixed(4) + ", " + place.lon.toFixed(4) + "</span>" +
           "</a></li>"
       )
@@ -83,7 +98,10 @@
     const options = list.querySelectorAll("li[role=option]");
     if (!options.length) return;
     active = (index + options.length) % options.length;
-    options.forEach((option, i) => option.classList.toggle("active", i === active));
+    options.forEach((option, i) => {
+      option.classList.toggle("active", i === active);
+      option.setAttribute("aria-selected", i === active ? "true" : "false");
+    });
     input.setAttribute("aria-activedescendant", "sug-" + active);
     options[active].scrollIntoView({ block: "nearest" });
   }
