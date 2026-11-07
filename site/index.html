@@ -18,9 +18,12 @@
 <header class="bar">
   <div class="wrap bar-inner">
     <a class="wordmark" href="/">placeswiki</a>
-    <form class="search" role="search" action="https://github.com/thepeternemec/placeswiki/search" method="get">
-      <label class="visually-hidden" for="q">Search the repository</label>
-      <input id="q" name="q" type="search" placeholder="Search placeswiki" autocomplete="off">
+    <form class="search" role="search" action="https://www.wikidata.org/w/index.php" method="get">
+      <label class="visually-hidden" for="q">Search the Berlin sample</label>
+      <input id="q" name="search" type="search" placeholder="Search 899 Berlin places"
+             autocomplete="off" role="combobox" aria-autocomplete="list"
+             aria-expanded="false" aria-controls="suggestions">
+      <ul id="suggestions" role="listbox" aria-label="Matching places" hidden></ul>
     </form>
     <nav aria-label="Project">
       <a href="#install">Install</a>
@@ -167,5 +170,6 @@ curl -X POST localhost:8080/v1/places:searchNearby \
     <p>placeswiki is open source. <a href="https://github.com/thepeternemec/placeswiki">Contribute on GitHub</a> · <a href="https://github.com/thepeternemec/placeswiki/blob/main/LICENSE">MIT</a> · <a href="https://github.com/thepeternemec/placeswiki/blob/main/DATA-LICENSE.md">CC BY-SA 4.0</a></p>
   </div>
 </footer>
+<script src="search.js" defer></script>
 </body>
 </html>

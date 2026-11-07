@@ -27,7 +27,9 @@ protocol from your own server, with no per-request fees.
 
 [**thepeternemec.github.io/placeswiki**](https://thepeternemec.github.io/placeswiki/) — the project
 page, laid out like a Wikipedia article: contents sidebar, infobox, cited
-references, and a gallery of photographs from the Berlin sample.
+references, a gallery from the Berlin sample, and a typeahead over its 899
+places that works with no server and no framework (75 KB of JSON, 4 KB of
+JavaScript, fetched only on focus).
 
 [![placeswiki site](docs/preview.png)](https://thepeternemec.github.io/placeswiki/)
 

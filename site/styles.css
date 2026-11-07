@@ -91,7 +91,7 @@ body {
 }
 .wordmark:hover { text-decoration: none; }
 
-.search { flex: 0 1 26rem; min-width: 12rem; margin-left: .5rem; }
+.search { position: relative; flex: 0 1 26rem; min-width: 12rem; margin-left: .5rem; }
 .search input {
   width: 100%;
   font: inherit;
@@ -108,6 +108,44 @@ body {
   outline-offset: 1px;
   border-color: var(--link);
 }
+
+#suggestions {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: .2rem 0;
+  list-style: none;
+  background: var(--page);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .12);
+  max-height: 22rem;
+  overflow-y: auto;
+  font-size: .82rem;
+}
+#suggestions li { margin: 0; }
+#suggestions a {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: .4rem .65rem;
+  color: var(--ink);
+  text-decoration: none;
+}
+#suggestions a:hover,
+#suggestions li.active a {
+  background: #eaf3ff;
+  text-decoration: none;
+}
+@media (prefers-color-scheme: dark) {
+  #suggestions a:hover, #suggestions li.active a { background: #2a3a50; }
+}
+#suggestions .sug-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#suggestions .sug-meta { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+#suggestions .empty { padding: .45rem .65rem; color: var(--muted); }
 
 .bar nav {
   display: flex;
