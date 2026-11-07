@@ -23,6 +23,14 @@ protocol from your own server, with no per-request fees.
 
 ---
 
+## Website
+
+[**thepeternemec.github.io/placeswiki**](https://thepeternemec.github.io/placeswiki/) — the project
+page, laid out like a Wikipedia article: contents sidebar, infobox, cited
+references, and a gallery of photographs from the Berlin sample.
+
+[![placeswiki site](docs/preview.png)](https://thepeternemec.github.io/placeswiki/)
+
 ## Why
 
 Google Places bills per request and forbids keeping what you fetched, so the cost
