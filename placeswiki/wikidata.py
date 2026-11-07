@@ -38,19 +38,34 @@ class SparqlError(RuntimeError):
     """Endpoint returned an error or an unusable response."""
 
 
-def heritage_query(limit=500, offset=0, country=None):
+def heritage_query(limit=500, offset=0, country=None, bbox=None, located_in=None):
     """Items with a heritage designation and coordinates.
 
-    ``country`` takes a Wikidata QID (e.g. ``Q215`` for Slovenia). ``None``
-    means worldwide, which works but leaves ``OFFSET`` deep — prefer looping
-    countries for a full build.
+    ``country`` takes a Wikidata QID (e.g. ``Q64`` for Berlin, ``Q215`` for
+    Slovenia). ``bbox`` is ``(south, west, north, east)`` and selects by
+    position instead, which is how you scope a city that is not a country.
+    ``None`` for both means worldwide, which works but leaves ``OFFSET`` deep —
+    prefer looping countries, or a bbox, for a full build.
     """
     scope = "\n  ?item wdt:P17 wd:%s ." % country if country else ""
+    if located_in:
+        # P131* follows the administrative hierarchy, so a city item picks up
+        # everything located in it, including sub-districts.
+        scope += "\n  ?item wdt:P131* wd:%s ." % located_in
+    bounds = ""
+    if bbox:
+        south, west, north, east = bbox
+        bounds = "\n  FILTER(?lat > %s && ?lat < %s && ?lon > %s && ?lon < %s)" % (
+            south,
+            north,
+            west,
+            east,
+        )
     return """%s
 SELECT ?item ?label ?lat ?lon ?article ?image ?category ?heritage ?country WHERE {
   ?item wdt:P1435 ?heritage ; wdt:P625 ?c .%s
   BIND(geof:latitude(?c) AS ?lat)
-  BIND(geof:longitude(?c) AS ?lon)
+  BIND(geof:longitude(?c) AS ?lon)%s
   OPTIONAL { ?item wdt:P18 ?image }
   OPTIONAL { ?item wdt:P373 ?category }
   OPTIONAL { ?article schema:about ?item ; schema:isPartOf <https://en.wikipedia.org/> }
@@ -58,7 +73,7 @@ SELECT ?item ?label ?lat ?lon ?article ?image ?category ?heritage ?country WHERE
   OPTIONAL { ?item wdt:P17 ?country }
 }
 ORDER BY ?item
-LIMIT %d OFFSET %d""" % (PREFIXES, scope, int(limit), int(offset))
+LIMIT %d OFFSET %d""" % (PREFIXES, scope, bounds, int(limit), int(offset))
 
 
 def countries_query():

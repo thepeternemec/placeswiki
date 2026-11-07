@@ -3,6 +3,21 @@
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **`bulk fetch --in Q64`** selects by administrative area (`P131*`), so a city
+  that is not a country can be sampled exactly; **`--bbox`** selects by position.
+  Both were added to produce the Berlin sample.
+- **Label fallback**: items with no English label are resolved in batches from
+  Wikidata across a language list; unresolvable rows are marked `failed` rather
+  than served as `Q…` identifiers.
+
+### Changed
+
+- The shipped sample is **Berlin** (899 places, 697 photographs), not Slovenia.
+
 ## [3.4.2] — 2026-11-06
 
 ### Fixed

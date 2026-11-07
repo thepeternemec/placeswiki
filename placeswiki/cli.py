@@ -207,7 +207,17 @@ def _build_parser():
 
     bulk = sub.add_parser("bulk", parents=[common], help="worldwide build from Wikidata")
     bulk.add_argument("action", choices=("fetch", "enrich", "status"))
-    bulk.add_argument("--country", help="Wikidata country QID, e.g. Q215 (Slovenia)")
+    bulk.add_argument("--country", help="Wikidata country QID, e.g. Q183 (Germany)")
+    bulk.add_argument(
+        "--in",
+        dest="located_in",
+        help="Wikidata administrative item, e.g. Q64 (Berlin) — uses P131*",
+    )
+    bulk.add_argument(
+        "--bbox",
+        help="bounding box south,west,north,east — use for a city, e.g. Berlin "
+        "52.33,13.08,52.68,13.76",
+    )
     bulk.add_argument(
         "--all-countries", action="store_true", help="loop every country, largest first"
     )
@@ -606,8 +616,24 @@ def cmd_bulk(args):
             from .wikidata import heritage_query
 
             ensure_wd_schema(store.conn)
+            bbox = None
+            if args.bbox:
+                try:
+                    bbox = tuple(float(part) for part in args.bbox.split(","))
+                except ValueError:
+                    raise SystemExit("--bbox must be south,west,north,east") from None
+                if len(bbox) != 4:
+                    raise SystemExit("--bbox must be south,west,north,east")
             if args.dry_run:
-                print(heritage_query(limit=args.page_size, offset=0, country=args.country))
+                print(
+                    heritage_query(
+                        limit=args.page_size,
+                        offset=0,
+                        country=args.country,
+                        bbox=bbox,
+                        located_in=args.located_in,
+                    )
+                )
                 return 0
             try:
                 client = SparqlClient(endpoint=args.endpoint, user_agent=args.user_agent)
@@ -629,6 +655,8 @@ def cmd_bulk(args):
                     page_size=args.page_size,
                     limit=args.limit,
                     log=lambda m: _log(args, m),
+                    bbox=bbox,
+                    located_in=args.located_in,
                 )
             _log(args, "staged %(rows)d rows in %(requests)d requests" % result)
             return 0
@@ -637,7 +665,18 @@ def cmd_bulk(args):
             commons = MediaWiki(
                 COMMONS_API, user_agent=args.user_agent, min_interval=args.min_interval
             )
-            result = bulk_enrich(store.conn, commons, limit=args.limit, log=lambda m: _log(args, m))
+            wikidata = MediaWiki(
+                "https://www.wikidata.org/w/api.php",
+                user_agent=args.user_agent,
+                min_interval=args.min_interval,
+            )
+            result = bulk_enrich(
+                store.conn,
+                commons,
+                limit=args.limit,
+                log=lambda m: _log(args, m),
+                wikidata=wikidata,
+            )
             _log(args, "enriched %(places)d places, %(photos)d photos" % result)
             return 0
 

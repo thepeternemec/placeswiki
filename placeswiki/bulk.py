@@ -53,7 +53,9 @@ def ensure_wd_schema(conn):
     conn.executescript(WD_DDL)
 
 
-def stage(conn, client, country=None, page_size=BATCH, limit=None, log=None):
+def stage(
+    conn, client, country=None, page_size=BATCH, limit=None, log=None, bbox=None, located_in=None
+):
     """Fetch one page (or all pages) of the heritage list into ``wd_places``.
 
     Rows are merged by QID: an item with three heritage designations arrives as
@@ -73,7 +75,11 @@ def stage(conn, client, country=None, page_size=BATCH, limit=None, log=None):
         size = page_size if limit is None else min(page_size, limit - rows_total)
         if size <= 0:
             break
-        payload = client.query(heritage_query(limit=size, offset=offset, country=country))
+        payload = client.query(
+            heritage_query(
+                limit=size, offset=offset, country=country, bbox=bbox, located_in=located_in
+            )
+        )
         requests += 1
         if not payload:
             break
@@ -205,6 +211,8 @@ def enrich(conn, commons, limit=None, log=None, wikidata=None):
         return {"places": 0, "photos": 0, "requests": 0}
 
     unlabeled = [row["qid"] for row in rows if not (row["label"] or row["enwiki_title"])]
+    if unlabeled and not wikidata and log:
+        log("%d rows have no label and no Wikidata client was supplied" % len(unlabeled))
     resolved_labels = fetch_labels(wikidata, unlabeled) if (unlabeled and wikidata) else {}
 
     files = [row["image_file"] for row in rows if row["image_file"]]

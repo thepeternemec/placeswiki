@@ -69,6 +69,37 @@ class TestQuery(unittest.TestCase):
         self.assertNotIn("wd:Q", heritage_query())
 
 
+class TestBoundingBox(unittest.TestCase):
+    def test_query_filters_by_administrative_area(self):
+        text = heritage_query(limit=10, located_in="Q64")
+        self.assertIn("wdt:P131* wd:Q64", text)
+
+    def test_query_filters_by_bbox(self):
+        text = heritage_query(limit=10, bbox=(52.33, 13.08, 52.68, 13.76))
+        self.assertIn("FILTER(?lat > 52.33", text)
+        self.assertIn("?lat < 52.68", text)
+        self.assertIn("?lon > 13.08", text)
+        self.assertIn("?lon < 13.76", text)
+
+    def test_stage_forwards_bbox_to_the_query(self):
+        class Recorder:
+            def __init__(self):
+                self.queries = []
+
+            def query(self, text):
+                self.queries.append(text)
+                return []
+
+        api = Recorder()
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        ensure_schema(conn)
+        ensure_wd_schema(conn)
+        stage(conn, api, bbox=(52.33, 13.08, 52.68, 13.76))
+        self.assertTrue(any("FILTER(?lat > 52.33" in q for q in api.queries))
+        conn.close()
+
+
 class TestParsing(unittest.TestCase):
     def test_qid_extraction(self):
         self.assertEqual(qid("http://www.wikidata.org/entity/Q42"), "Q42")
