@@ -107,6 +107,50 @@ h2 {
   border-bottom: 1px solid var(--rule);
 }
 
+.badges { display: flex; flex-wrap: wrap; gap: .4rem; margin: 0 0 1.2rem; }
+.pill {
+  display: inline-block;
+  border: 1px solid var(--rule-soft);
+  background: var(--panel-head);
+  color: var(--muted);
+  border-radius: 2px;
+  padding: .1rem .5rem;
+  font-size: .72rem;
+  letter-spacing: .02em;
+  text-decoration: none;
+}
+.pill:hover { color: var(--ink); border-color: var(--rule); text-decoration: none; }
+
+.cmd {
+  display: flex; align-items: center; gap: .6rem;
+  color: var(--muted);
+  font-size: .78rem;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  margin: 1.2rem 0 .35rem;
+}
+.cmd::after { content: ""; flex: 1; height: 1px; background: var(--rule-soft); }
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: .9rem;
+  margin: 1rem 0 1.2rem;
+  max-width: 46rem;
+}
+.card {
+  border: 1px solid var(--rule-soft);
+  background: var(--panel);
+  padding: .8rem .9rem;
+}
+.card h3 {
+  font-family: var(--serif);
+  font-weight: normal;
+  font-size: 1.02rem;
+  margin: 0 0 .35rem;
+}
+.card p { margin: 0; font-size: .82rem; color: var(--muted); }
+
 .from {
   color: var(--muted);
   font-size: .8rem;
