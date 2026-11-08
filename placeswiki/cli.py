@@ -18,6 +18,7 @@ import sys
 from . import __version__
 from .api import DEFAULT_UA, MediaWiki
 from .bulk import enrich as bulk_enrich
+from .bulk import retry_failed
 from .bulk import stage as bulk_stage
 from .bulk import stage_countries as bulk_stage_countries
 from .bulk import status as bulk_status
@@ -223,6 +224,11 @@ def _build_parser():
     )
     bulk.add_argument("--page-size", type=int, default=500)
     bulk.add_argument("--limit", type=int, help="stop after N rows")
+    bulk.add_argument(
+        "--retry-failed",
+        action="store_true",
+        help="for enrich: move rows marked failed back to pending first",
+    )
     bulk.add_argument("--endpoint", default="qlever", help="qlever | wdqs | URL")
     bulk.add_argument(
         "--scope",
@@ -676,6 +682,9 @@ def cmd_bulk(args):
             commons = MediaWiki(
                 COMMONS_API, user_agent=args.user_agent, min_interval=args.min_interval
             )
+            if args.retry_failed:
+                count = retry_failed(store.conn)
+                _log(args, "retrying %d failed rows" % count)
             wikidata = MediaWiki(
                 "https://www.wikidata.org/w/api.php",
                 user_agent=args.user_agent,

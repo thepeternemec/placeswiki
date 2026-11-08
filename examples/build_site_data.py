@@ -41,15 +41,20 @@ def main(out_dir, specs):
         path = os.path.join(out_dir, slug + ".json")
         with open(path, "w", encoding="utf-8") as handle:
             json.dump(places, handle, ensure_ascii=False, separators=(",", ":"))
-        cities.append({
-            "s": slug,
-            "n": name,
-            "c": country,
-            "count": len(places),
-            "lat": round(sum(p[2] for p in places) / len(places), 4),
-            "lon": round(sum(p[3] for p in places) / len(places), 4),
-        })
-        print("%-8s %6d places -> %s (%.0f KB)" % (name, len(places), path, os.path.getsize(path) / 1024))
+        cities.append(
+            {
+                "s": slug,
+                "n": name,
+                "c": country,
+                "count": len(places),
+                "lat": round(sum(p[2] for p in places) / len(places), 4),
+                "lon": round(sum(p[3] for p in places) / len(places), 4),
+            }
+        )
+        print(
+            "%-8s %6d places -> %s (%.0f KB)"
+            % (name, len(places), path, os.path.getsize(path) / 1024)
+        )
 
     with open(os.path.join(out_dir, "cities.json"), "w", encoding="utf-8") as handle:
         json.dump(cities, handle, ensure_ascii=False, separators=(",", ":"))

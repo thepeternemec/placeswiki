@@ -8,7 +8,15 @@ import unittest
 import urllib.error
 from email.message import Message
 
-from placeswiki.bulk import enrich, ensure_wd_schema, pending, stage, status
+from placeswiki.bulk import (
+    enrich,
+    ensure_wd_schema,
+    fetch_labels,
+    pending,
+    retry_failed,
+    stage,
+    status,
+)
 from placeswiki.schema import ensure_schema
 from placeswiki.wikidata import (
     COMMERCIAL_CLASSES,
@@ -180,6 +188,35 @@ class FakeSparql:
         return self.pages.pop(0) if self.pages else []
 
 
+class TestLabelFallback(unittest.TestCase):
+    def test_falls_back_to_all_languages(self):
+        calls = []
+
+        class OnlyOtherLanguage:
+            def get(self, params=None, **kwargs):
+                kwargs = dict(params or {}, **kwargs)
+                calls.append("languages" in kwargs)
+                if "languages" in kwargs:
+                    return {"entities": {"Q1": {"labels": {}}}}
+                return {"entities": {"Q1": {"labels": {"bar": {"value": "Schloss"}}}}}
+
+        labels = fetch_labels(OnlyOtherLanguage(), ["Q1"])
+        self.assertEqual(labels, {"Q1": "Schloss"})
+        self.assertEqual(calls, [True, False])
+
+    def test_prefers_english_then_any(self):
+        class API:
+            def get(self, params=None, **kwargs):
+                return {
+                    "entities": {
+                        "Q1": {"labels": {"de": {"value": "Deutsch"}, "en": {"value": "English"}}},
+                        "Q2": {"labels": {"de": {"value": "Nur Deutsch"}}},
+                    }
+                }
+
+        self.assertEqual(fetch_labels(API(), ["Q1", "Q2"]), {"Q1": "English", "Q2": "Nur Deutsch"})
+
+
 class TestStage(unittest.TestCase):
     def setUp(self):
         self.conn = sqlite3.connect(":memory:")
@@ -207,6 +244,15 @@ class TestStage(unittest.TestCase):
         client = FakeSparql([list(SAMPLE_ROWS), list(SAMPLE_ROWS)])
         result = stage(self.conn, client, page_size=2, limit=2)
         self.assertEqual(result["rows"], 2)
+
+    def test_retry_failed_resets_rows(self):
+        stage(self.conn, FakeSparql([list(SAMPLE_ROWS)]))
+        self.conn.execute("UPDATE wd_places SET status='failed', error='no label'")
+        self.conn.commit()
+        self.assertEqual(retry_failed(self.conn), 2)
+        row = self.conn.execute("SELECT status, error FROM wd_places LIMIT 1").fetchone()
+        self.assertEqual(row["status"], "pending")
+        self.assertIsNone(row["error"])
 
     def test_rerun_does_not_duplicate(self):
         stage(self.conn, FakeSparql([list(SAMPLE_ROWS)]))

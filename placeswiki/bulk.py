@@ -85,9 +85,7 @@ def stage(
             break
         query = landmark_query if scope == "landmarks" else heritage_query
         payload = client.query(
-            query(
-                limit=size, offset=offset, country=country, bbox=bbox, located_in=located_in
-            )
+            query(limit=size, offset=offset, country=country, bbox=bbox, located_in=located_in)
         )
         requests += 1
         if not payload:
@@ -157,7 +155,9 @@ def stage_countries(conn, client, page_size=BATCH, limit=None, log=None, scope="
         country = (row.get("country") or "").rsplit("/", 1)[-1]
         if not country:
             continue
-        result = stage(conn, client, country=country, page_size=page_size, limit=limit, log=log, scope=scope)
+        result = stage(
+            conn, client, country=country, page_size=page_size, limit=limit, log=log, scope=scope
+        )
         total["rows"] += result["rows"]
         total["requests"] += result["requests"]
         total["countries"] += 1
@@ -171,15 +171,26 @@ def stage_countries(conn, client, page_size=BATCH, limit=None, log=None, scope="
 LANGUAGE_FALLBACKS = "en|mul|sl|de|it|fr|es|hr"
 
 
+def _label_from(entity):
+    """Pick the best label from an entity: English, then anything."""
+    values = entity.get("labels") or {}
+    if not values:
+        return ""
+    if "en" in values:
+        return values["en"]["value"]
+    return next(iter(values.values()))["value"]
+
+
 def fetch_labels(api, qids, batch=50):
     """Resolve display labels for items whose SPARQL label was missing.
 
-    A row without a label would otherwise be served as ``Q103848509``, which is
-    not a name anyone can read. One batched request per fifty gaps is cheap
-    insurance against that.
+    Two passes: first the language list we prefer, then all languages for
+    whatever is still blank. Without the second pass, an item labelled only in
+    an unexpected language is dropped for no good reason.
     """
     labels = {}
     qids = [qid for qid in qids if qid]
+
     for start in range(0, len(qids), batch):
         chunk = qids[start : start + batch]
         payload = api.get(
@@ -190,15 +201,33 @@ def fetch_labels(api, qids, batch=50):
             formatversion=2,
         )
         for qid, entity in (payload.get("entities") or {}).items():
-            values = entity.get("labels") or {}
-            if not values:
-                continue
-            # prefer English, then any label the item carries
-            if "en" in values:
-                labels[qid] = values["en"]["value"]
-            else:
-                labels[qid] = next(iter(values.values()))["value"]
+            label = _label_from(entity)
+            if label:
+                labels[qid] = label
+
+    missing = [qid for qid in qids if qid not in labels]
+    for start in range(0, len(missing), batch):
+        chunk = missing[start : start + batch]
+        payload = api.get(
+            action="wbgetentities",
+            ids="|".join(chunk),
+            props="labels",
+            formatversion=2,
+        )
+        for qid, entity in (payload.get("entities") or {}).items():
+            label = _label_from(entity)
+            if label:
+                labels[qid] = label
+
     return labels
+
+
+def retry_failed(conn):
+    """Move rows marked failed back to pending, for a second attempt."""
+    ensure_wd_schema(conn)
+    cursor = conn.execute("UPDATE wd_places SET status='pending', error=NULL WHERE status='failed'")
+    conn.commit()
+    return cursor.rowcount
 
 
 def pending(conn, limit=None):
