@@ -13,10 +13,6 @@ Versioning: [Semantic Versioning](https://semver.org/).
   only when it is selected.
 - **`examples/build_site_data.py`** turns any placeswiki database into the
   `cities.json` + per-city arrays the page uses.
-
-
-### Added
-
 - **`bulk fetch --scope landmarks`** extends the worldwide set beyond heritage
   listings to notable bridges, parks, gardens, streets, roads, squares,
   monuments, memorials, statues, fountains, towers, castles, museums, churches,

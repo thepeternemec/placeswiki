@@ -342,13 +342,13 @@ class TestLandmarkQuery(unittest.TestCase):
         text = landmark_query(limit=50, offset=100)
         for token in ("P1435", "P625", "P31/wdt:P279*", "LIMIT 50", "OFFSET 100"):
             self.assertIn(token, text)
-        for qid in ("Q12280", "Q22698", "Q79007", "Q174782", "Q23413", "Q33506"):
-            self.assertIn("wd:" + qid, text)
+        for landmark in ("Q12280", "Q22698", "Q79007", "Q174782", "Q23413", "Q33506"):
+            self.assertIn("wd:" + landmark, text)
 
     def test_excludes_commercial_venues(self):
         text = landmark_query()
-        for qid in ("Q11707", "Q27686", "Q187456", "Q213441", "Q30022"):
-            self.assertIn("wd:" + qid, text)
+        for commercial in ("Q11707", "Q27686", "Q187456", "Q213441", "Q30022"):
+            self.assertIn("wd:" + commercial, text)
         self.assertIn("FILTER NOT EXISTS", text)
 
     def test_scope_and_bounds_are_injected(self):
