@@ -7,6 +7,16 @@ Versioning: [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **City-first search on the site**: the box now suggests cities, then searches
+  the places inside the chosen one, with a chip to clear the city. Berlin
+  (1,600 places) and São Paulo (991) ship as static indexes; a city's list loads
+  only when it is selected.
+- **`examples/build_site_data.py`** turns any placeswiki database into the
+  `cities.json` + per-city arrays the page uses.
+
+
+### Added
+
 - **`bulk fetch --scope landmarks`** extends the worldwide set beyond heritage
   listings to notable bridges, parks, gardens, streets, roads, squares,
   monuments, memorials, statues, fountains, towers, castles, museums, churches,
@@ -165,6 +175,16 @@ tests:
   no feature inventory.
 
 ## [Unreleased]
+
+### Added
+
+- **City-first search on the site**: the box now suggests cities, then searches
+  the places inside the chosen one, with a chip to clear the city. Berlin
+  (1,600 places) and São Paulo (991) ship as static indexes; a city's list loads
+  only when it is selected.
+- **`examples/build_site_data.py`** turns any placeswiki database into the
+  `cities.json` + per-city arrays the page uses.
+
 
 - `overture` importer for breadth (3.17 M Cultural and Historic features)
 - `bulk run` that drains `pending` in one command

@@ -19,8 +19,12 @@
   <div class="wrap bar-inner">
     <a class="wordmark" href="/">placeswiki</a>
     <form class="search" role="search" action="https://www.wikidata.org/w/index.php" method="get">
-      <label class="visually-hidden" for="q">Search the Berlin sample</label>
-      <input id="q" name="search" type="search" placeholder="Search 899 Berlin places"
+      <label class="visually-hidden" for="q">Search a city, then its places</label>
+      <span id="city-chip" class="city-chip" hidden>
+        <span id="city-name"></span>
+        <button id="city-clear" type="button" aria-label="Clear city and search again">×</button>
+      </span>
+      <input id="q" name="search" type="search" placeholder="Search a city"
              autocomplete="off" role="combobox" aria-autocomplete="list"
              aria-expanded="false" aria-controls="suggestions">
       <ul id="suggestions" role="listbox" aria-label="Matching places" hidden></ul>
@@ -81,6 +85,7 @@
         <tr><th>Type</th><td>Open dataset and server</td></tr>
         <tr><th>Sources</th><td><a href="https://www.wikipedia.org">Wikipedia</a>, <a href="https://www.wikidata.org">Wikidata</a>, <a href="https://commons.wikimedia.org">Wikimedia Commons</a></td></tr>
         <tr><th>Scope</th><td>Historical places and landmarks</td></tr>
+        <tr><th>Cities</th><td>Berlin, São Paulo</td></tr>
         <tr><th>Protocol</th><td>Places API (New)</td></tr>
         <tr><th>Written in</th><td>Python, standard library</td></tr>
         <tr><th>Licence</th><td>MIT (code), CC BY-SA 4.0 (data)</td></tr>
@@ -107,7 +112,9 @@
     </ul>
 
     <h2 id="data">Data</h2>
-    <p>An 899-place sample from Berlin ships with every release: 697 photographs, a 660&nbsp;KB serving database and a 1.5&nbsp;MB bundle including per-file attribution. Selection is administrative rather than visual — the sample is every heritage-listed item Wikidata places inside Berlin, which is why it contains village churches and goods stations rather than the postcard monuments.<sup><a href="#cite_note-3">[3]</a></sup> Photographs remain under their own licences and are attributed per file, in the bundle's <code>ATTRIBUTION.md</code>.</p>
+    <p>Two city samples ship with the page: <strong>Berlin</strong> (1,600 places, 1,297 photographs) and <strong>São Paulo</strong> (991 places). Berlin's landmark query matches 9,242 places — heritage listings plus bridges, parks, squares, monuments and other landmarks, with restaurants, shops and hotels excluded — but enrichment is rate-limited by Wikidata, so the page ships the first 1,600.</p>
+
+    <p>The search box works in the same order the data is built: pick a city, then search the places inside it. Both indexes are static JSON, fetched only when used.<sup><a href="#cite_note-3">[3]</a></sup> Photographs remain under their own licences and are attributed per file, in the bundle's <code>ATTRIBUTION.md</code>.</p>
 
     <div class="gallery" role="group" aria-label="Sample photographs">
       <figure>
