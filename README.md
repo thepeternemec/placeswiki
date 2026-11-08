@@ -28,8 +28,8 @@ protocol from your own server, with no per-request fees.
 [**thepeternemec.github.io/placeswiki**](https://thepeternemec.github.io/placeswiki/) — the project
 page, laid out like a Wikipedia article: contents sidebar, infobox, cited
 references, a gallery, and a two-step typeahead — pick a city, then search its
-places (Berlin 1,600, São Paulo 991). No server and no framework: a city's index
-loads only when that city is chosen.
+places (Berlin 9,242, São Paulo 1,500). No server and no framework: a city's
+index loads only when that city is chosen.
 
 [![placeswiki site](docs/preview.png)](https://thepeternemec.github.io/placeswiki/)
 

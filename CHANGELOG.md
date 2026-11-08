@@ -9,8 +9,11 @@ Versioning: [Semantic Versioning](https://semver.org/).
 
 - **City-first search on the site**: the box now suggests cities, then searches
   the places inside the chosen one, with a chip to clear the city. Berlin
-  (1,600 places) and São Paulo (991) ship as static indexes; a city's list loads
-  only when it is selected.
+  (9,242 places) and São Paulo (1,500) ship as static indexes; a city's list
+  loads only when it is selected.
+- **Complete city builds**: Berlin now ships every place its landmark query
+  returns, not a sample — 9,242 places and 7,722 photographs. São Paulo's 509
+  label failures were recovered by the all-language fallback.
 - **`examples/build_site_data.py`** turns any placeswiki database into the
   `cities.json` + per-city arrays the page uses.
 - **`bulk fetch --scope landmarks`** extends the worldwide set beyond heritage
@@ -176,8 +179,11 @@ tests:
 
 - **City-first search on the site**: the box now suggests cities, then searches
   the places inside the chosen one, with a chip to clear the city. Berlin
-  (1,600 places) and São Paulo (991) ship as static indexes; a city's list loads
-  only when it is selected.
+  (9,242 places) and São Paulo (1,500) ship as static indexes; a city's list
+  loads only when it is selected.
+- **Complete city builds**: Berlin now ships every place its landmark query
+  returns, not a sample — 9,242 places and 7,722 photographs. São Paulo's 509
+  label failures were recovered by the all-language fallback.
 - **`examples/build_site_data.py`** turns any placeswiki database into the
   `cities.json` + per-city arrays the page uses.
 
