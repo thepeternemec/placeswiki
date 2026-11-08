@@ -12,6 +12,9 @@ venv/
 *.sqlite-journal
 *.sqlite-wal
 data/
+# the site's search indexes are build artefacts that must ship
+!site/data/
+!site/data/*.json
 *.jsonl
 *.csv
 
