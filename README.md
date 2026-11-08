@@ -96,7 +96,11 @@ Details and deliberate differences: [docs/API.md](docs/API.md).
 
 ## What's inside
 
-- **2.2 M places.** Every Wikidata item with a heritage designation and coordinates.
+- **2.2 M places in the default heritage scope.** Every Wikidata item with a heritage
+  designation and coordinates. Build with `--scope landmarks` to add notable bridges, parks,
+  gardens, streets, roads, squares, monuments, memorials, statues, fountains, towers, castles,
+  museums, churches, zoos, stadiums, lighthouses and archaeological sites, while restaurants,
+  hotels, bars, pubs, shops, cafés, bakeries and nightclubs stay out.
 - **Photographs that are scored, not scraped.** Resolution 40, licence 25, attribution 15, lead image 20 — with the reasons stored beside the score.
 - **Stable Wikimedia ids.** `wc:Q10285` where Wikidata knows it; Google ids stay an optional join.
 - **Webhooks.** Signed `dataset.updated` events after a build, so indexes refresh instead of polling.

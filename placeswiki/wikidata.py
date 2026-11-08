@@ -76,6 +76,107 @@ ORDER BY ?item
 LIMIT %d OFFSET %d""" % (PREFIXES, scope, bounds, int(limit), int(offset))
 
 
+LANDMARK_CLASSES = {
+    "Q12280": "bridge",
+    "Q22698": "park",
+    "Q1107656": "garden",
+    "Q79007": "street",
+    "Q34442": "road",
+    "Q174782": "square",
+    "Q4989906": "monument",
+    "Q5003624": "memorial",
+    "Q179700": "statue",
+    "Q483453": "fountain",
+    "Q12518": "tower",
+    "Q1440300": "observation tower",
+    "Q23413": "castle",
+    "Q33506": "museum",
+    "Q16970": "church building",
+    "Q43501": "zoo",
+    "Q483110": "stadium",
+    "Q39715": "lighthouse",
+    "Q839954": "archaeological site",
+    "Q358": "heritage site",
+    "Q82117": "city gate",
+}
+
+# Commercial venues deliberately kept out of the landmark scope, together with
+# their subclasses (a pizzeria is a subclass of restaurant, a boutique of shop).
+COMMERCIAL_CLASSES = {
+    "Q11707": "restaurant",
+    "Q1751429": "fast food restaurant",
+    "Q187456": "bar",
+    "Q212198": "pub",
+    "Q213441": "shop",
+    "Q274393": "bakery",
+    "Q27686": "hotel",
+    "Q30022": "café",
+    "Q622425": "nightclub",
+}
+
+
+def _values(qids):
+    return " ".join("wd:" + q for q in qids)
+
+
+def landmark_query(limit=500, offset=0, country=None, bbox=None, located_in=None):
+    """Heritage-listed items *and* city landmarks, minus commercial venues.
+
+    The landmark branch covers bridges, parks, gardens, streets, roads,
+    squares, monuments, memorials, statues, fountains, towers, observation
+    towers, castles, museums, church buildings, zoos, stadiums, lighthouses,
+    archaeological and heritage sites, and city gates, including subclasses.
+    It requires an English Wikipedia article, which keeps the set to notable
+    places instead of every geocoded street segment.
+
+    Restaurants, fast food restaurants, bars, pubs, shops, bakeries, hotels,
+    cafés and nightclubs are excluded by ``P31/P279*`` so subclasses such as
+    pizzerias and boutiques drop out too.
+    """
+    scope = "\n  ?item wdt:P17 wd:%s ." % country if country else ""
+    if located_in:
+        scope += "\n  ?item wdt:P131* wd:%s ." % located_in
+    bounds = ""
+    if bbox:
+        south, west, north, east = bbox
+        bounds = "\n  FILTER(?lat > %s && ?lat < %s && ?lon > %s && ?lon < %s)" % (
+            south,
+            north,
+            west,
+            east,
+        )
+    return """%s
+SELECT ?item ?label ?lat ?lon ?article ?image ?category ?heritage ?country WHERE {
+  ?item wdt:P625 ?c .
+  { ?item wdt:P1435 ?heritage } UNION {
+      ?article schema:about ?item ; schema:isPartOf <https://en.wikipedia.org/> .
+      ?item wdt:P31/wdt:P279* ?class .
+      VALUES ?class { %s }
+  }
+  FILTER NOT EXISTS {
+    ?item wdt:P31/wdt:P279* ?excluded .
+    VALUES ?excluded { %s }
+  }%s
+  BIND(geof:latitude(?c) AS ?lat)
+  BIND(geof:longitude(?c) AS ?lon)%s
+  OPTIONAL { ?item wdt:P18 ?image }
+  OPTIONAL { ?item wdt:P373 ?category }
+  OPTIONAL { ?article schema:about ?item ; schema:isPartOf <https://en.wikipedia.org/> }
+  OPTIONAL { ?item rdfs:label ?label FILTER(lang(?label) = "en") }
+  OPTIONAL { ?item wdt:P17 ?country }
+}
+ORDER BY ?item
+LIMIT %d OFFSET %d""" % (
+        PREFIXES,
+        _values(LANDMARK_CLASSES),
+        _values(COMMERCIAL_CLASSES),
+        scope,
+        bounds,
+        int(limit),
+        int(offset),
+    )
+
+
 def countries_query():
     """Countries that contain heritage-listed, geocoded items, largest first."""
     return (

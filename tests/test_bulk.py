@@ -11,11 +11,14 @@ from email.message import Message
 from placeswiki.bulk import enrich, ensure_wd_schema, pending, stage, status
 from placeswiki.schema import ensure_schema
 from placeswiki.wikidata import (
+    COMMERCIAL_CLASSES,
+    LANDMARK_CLASSES,
     SparqlClient,
     SparqlError,
     commons_file,
     enwiki_title,
     heritage_query,
+    landmark_query,
     parse_row,
     qid,
 )
@@ -332,3 +335,27 @@ class TestEnrich(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestLandmarkQuery(unittest.TestCase):
+    def test_includes_heritage_and_landmark_classes(self):
+        text = landmark_query(limit=50, offset=100)
+        for token in ("P1435", "P625", "P31/wdt:P279*", "LIMIT 50", "OFFSET 100"):
+            self.assertIn(token, text)
+        for qid in ("Q12280", "Q22698", "Q79007", "Q174782", "Q23413", "Q33506"):
+            self.assertIn("wd:" + qid, text)
+
+    def test_excludes_commercial_venues(self):
+        text = landmark_query()
+        for qid in ("Q11707", "Q27686", "Q187456", "Q213441", "Q30022"):
+            self.assertIn("wd:" + qid, text)
+        self.assertIn("FILTER NOT EXISTS", text)
+
+    def test_scope_and_bounds_are_injected(self):
+        text = landmark_query(country="Q40", bbox=(48.1, 16.2, 48.3, 16.5), located_in="Q1741")
+        self.assertIn("wdt:P17 wd:Q40", text)
+        self.assertIn("wdt:P131* wd:Q1741", text)
+        self.assertIn("FILTER(?lat > 48.1", text)
+
+    def test_class_lists_are_disjoint(self):
+        self.assertFalse(set(LANDMARK_CLASSES) & set(COMMERCIAL_CLASSES))

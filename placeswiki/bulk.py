@@ -24,7 +24,7 @@ import time
 from .images import fetch_imageinfo
 from .intel import clean_author
 from .schema import fold_text, infer_types, slugify
-from .wikidata import heritage_query, parse_row
+from .wikidata import heritage_query, landmark_query, parse_row
 
 WD_DDL = """
 CREATE TABLE IF NOT EXISTS wd_places (
@@ -54,7 +54,15 @@ def ensure_wd_schema(conn):
 
 
 def stage(
-    conn, client, country=None, page_size=BATCH, limit=None, log=None, bbox=None, located_in=None
+    conn,
+    client,
+    country=None,
+    page_size=BATCH,
+    limit=None,
+    log=None,
+    bbox=None,
+    located_in=None,
+    scope="heritage",
 ):
     """Fetch one page (or all pages) of the heritage list into ``wd_places``.
 
@@ -75,8 +83,9 @@ def stage(
         size = page_size if limit is None else min(page_size, limit - rows_total)
         if size <= 0:
             break
+        query = landmark_query if scope == "landmarks" else heritage_query
         payload = client.query(
-            heritage_query(
+            query(
                 limit=size, offset=offset, country=country, bbox=bbox, located_in=located_in
             )
         )
@@ -138,7 +147,7 @@ def stage(
     return {"rows": rows_total, "requests": requests, "done": True}
 
 
-def stage_countries(conn, client, page_size=BATCH, limit=None, log=None):
+def stage_countries(conn, client, page_size=BATCH, limit=None, log=None, scope="heritage"):
     """Stage every country, largest first. Resumable: countries already staged
     are skipped by qid de-duplication, not by bookkeeping."""
     from .wikidata import countries_query
@@ -148,7 +157,7 @@ def stage_countries(conn, client, page_size=BATCH, limit=None, log=None):
         country = (row.get("country") or "").rsplit("/", 1)[-1]
         if not country:
             continue
-        result = stage(conn, client, country=country, page_size=page_size, limit=limit, log=log)
+        result = stage(conn, client, country=country, page_size=page_size, limit=limit, log=log, scope=scope)
         total["rows"] += result["rows"]
         total["requests"] += result["requests"]
         total["countries"] += 1

@@ -7,6 +7,12 @@ Versioning: [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **`bulk fetch --scope landmarks`** extends the worldwide set beyond heritage
+  listings to notable bridges, parks, gardens, streets, roads, squares,
+  monuments, memorials, statues, fountains, towers, castles, museums, churches,
+  zoos, stadiums, lighthouses and archaeological sites. Restaurants, hotels,
+  bars, pubs, shops, cafés, bakeries and nightclubs are excluded via
+  `P31/P279*`, so their subclasses drop out too.
 - **`bulk fetch --in Q64`** selects by administrative area (`P131*`), so a city
   that is not a country can be sampled exactly; **`--bbox`** selects by position.
   Both were added to produce the Berlin sample.

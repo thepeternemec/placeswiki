@@ -224,6 +224,14 @@ def _build_parser():
     bulk.add_argument("--page-size", type=int, default=500)
     bulk.add_argument("--limit", type=int, help="stop after N rows")
     bulk.add_argument("--endpoint", default="qlever", help="qlever | wdqs | URL")
+    bulk.add_argument(
+        "--scope",
+        choices=("heritage", "landmarks"),
+        default="heritage",
+        help="heritage: P1435 listings only; landmarks: also bridges, parks, gardens, streets, "
+        "squares, monuments, statues, towers, castles, museums, churches, zoos, stadiums, "
+        "lighthouses and archaeological sites (restaurants, hotels, bars, shops excluded)",
+    )
     bulk.add_argument("--dry-run", action="store_true", help="build the query without sending it")
 
     publish = sub.add_parser(
@@ -613,7 +621,7 @@ def cmd_bulk(args):
         ensure_schema(store.conn)
         if args.action == "fetch":
             from .bulk import ensure_wd_schema
-            from .wikidata import heritage_query
+            from .wikidata import heritage_query, landmark_query
 
             ensure_wd_schema(store.conn)
             bbox = None
@@ -625,8 +633,9 @@ def cmd_bulk(args):
                 if len(bbox) != 4:
                     raise SystemExit("--bbox must be south,west,north,east")
             if args.dry_run:
+                query = landmark_query if args.scope == "landmarks" else heritage_query
                 print(
-                    heritage_query(
+                    query(
                         limit=args.page_size,
                         offset=0,
                         country=args.country,
@@ -646,6 +655,7 @@ def cmd_bulk(args):
                     page_size=args.page_size,
                     limit=args.limit,
                     log=lambda m: _log(args, m),
+                    scope=args.scope,
                 )
             else:
                 result = bulk_stage(
@@ -657,6 +667,7 @@ def cmd_bulk(args):
                     log=lambda m: _log(args, m),
                     bbox=bbox,
                     located_in=args.located_in,
+                    scope=args.scope,
                 )
             _log(args, "staged %(rows)d rows in %(requests)d requests" % result)
             return 0
